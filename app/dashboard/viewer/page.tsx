@@ -61,7 +61,6 @@ export default function ViewerDashboard() {
         .sidebar-deco { position: absolute; width: 180px; height: 180px; border-radius: 50%; border: 40px solid rgba(245,166,35,0.07); bottom: -60px; left: -60px; pointer-events: none; }
         .sidebar-logo { padding: 1.4rem 1.2rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
         .logo-row { display: flex; align-items: center; gap: 10px; }
-        .logo-icon { width: 36px; height: 36px; border-radius: 9px; background: #F5A623; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .logo-name { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 800; color: #fff; }
         .logo-name span { color: #F5A623; }
         .nav-section { padding: 1rem 0.8rem; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
@@ -98,14 +97,30 @@ export default function ViewerDashboard() {
         <div className="sidebar">
           <div className="sidebar-deco" />
           <div className="sidebar-logo">
-            <div className="logo-row">
-              <div className="logo-icon">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 2L10 18M4 10L16 10" stroke="#0D1F45" strokeWidth="2.5" strokeLinecap="round"/>
-                  <circle cx="10" cy="10" r="4" stroke="#0D1F45" strokeWidth="1.5"/>
-                </svg>
+            <div className="logo-row" style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'  /* Reducimos un poco el gap para que se sientan más unidos */
+            }}>
+              <div className="logo-icon" style={{ flexShrink: 0 }}>
+                <img
+                  src="/logos/logo.png"
+                  alt="Logo"
+                  style={{
+                    width: '55px',   /* Un poco más grande para dar autoridad */
+                    height: 'auto',
+                    display: 'block'
+                  }}
+                />
               </div>
-              <div className="logo-name">CEP<span>EV</span></div>
+              <div className="logo-name" style={{
+                fontSize: '18px',    /* Letras un poco más pequeñas y elegantes */
+                fontWeight: '600',   /* Un grosor medio para que no se pierdan */
+                letterSpacing: '0.5px', /* Espaciado sutil entre letras */
+                color: '#FFFFFF'
+              }}>
+                CEPEV
+              </div>
             </div>
           </div>
 

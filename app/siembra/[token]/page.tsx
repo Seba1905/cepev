@@ -1,128 +1,144 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+"use client";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 type Colportor = {
-  id: string
-  nombre: string
-  numero_documento: string
-}
+  id: string;
+  nombre: string;
+  numero_documento: string;
+};
 
 type Enlace = {
-  id: string
-  token: string
-  fecha: string
-  expira_at: string
-}
+  id: string;
+  token: string;
+  fecha: string;
+  expira_at: string;
+};
 
-type Estado = 'validando' | 'expirado' | 'documento' | 'formulario' | 'enviado'
+type Estado = "validando" | "expirado" | "documento" | "formulario" | "enviado";
 
 export default function SiembraPublica() {
-  const params = useParams()
-  const token = params.token as string
+  const params = useParams();
+  const token = params.token as string;
 
-  const [estado, setEstado] = useState<Estado>('validando')
-  const [enlace, setEnlace] = useState<Enlace | null>(null)
-  const [documento, setDocumento] = useState('')
-  const [colportor, setColportor] = useState<Colportor | null>(null)
-  const [errorDoc, setErrorDoc] = useState('')
-  const [buscando, setBuscando] = useState(false)
-  const [kits, setKits] = useState('')
-  const [ivpt, setIvpt] = useState('')
-  const [guardando, setGuardando] = useState(false)
-  const [yaRegistro, setYaRegistro] = useState(false)
-  const [registroExistente, setRegistroExistente] = useState<any>(null)
+  const [estado, setEstado] = useState<Estado>("validando");
+  const [enlace, setEnlace] = useState<Enlace | null>(null);
+  const [documento, setDocumento] = useState("");
+  const [colportor, setColportor] = useState<Colportor | null>(null);
+  const [errorDoc, setErrorDoc] = useState("");
+  const [buscando, setBuscando] = useState(false);
+  const [kits, setKits] = useState("");
+  const [ivpt, setIvpt] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [yaRegistro, setYaRegistro] = useState(false);
+  const [registroExistente, setRegistroExistente] = useState<any>(null);
 
-  useEffect(() => { validarToken() }, [])
+  useEffect(() => {
+    validarToken();
+  }, []);
 
   async function validarToken() {
     const { data } = await supabase
-      .from('enlaces_siembra')
-      .select('*')
-      .eq('token', token)
-      .single()
+      .from("enlaces_siembra")
+      .select("*")
+      .eq("token", token)
+      .single();
 
-    if (!data) { setEstado('expirado'); return }
+    if (!data) {
+      setEstado("expirado");
+      return;
+    }
 
-    const ahora = new Date()
-    const expira = new Date(data.expira_at)
-    if (ahora > expira) { setEstado('expirado'); return }
+    const ahora = new Date();
+    const expira = new Date(data.expira_at);
+    if (ahora > expira) {
+      setEstado("expirado");
+      return;
+    }
 
-    setEnlace(data)
-    setEstado('documento')
+    setEnlace(data);
+    setEstado("documento");
   }
 
   async function handleBuscarDocumento() {
-    if (!documento.trim()) return
-    setBuscando(true)
-    setErrorDoc('')
+    if (!documento.trim()) return;
+    setBuscando(true);
+    setErrorDoc("");
 
     const { data } = await supabase
-      .from('colportores')
-      .select('id, nombre, numero_documento')
-      .eq('numero_documento', documento.trim())
-      .single()
+      .from("colportores")
+      .select("id, nombre, numero_documento")
+      .eq("numero_documento", documento.trim())
+      .single();
 
     if (!data) {
-      setErrorDoc('No encontramos un colportor con ese número de documento. Por favor comunícate con el área encargada del CEPEV.')
-      setBuscando(false)
-      return
+      setErrorDoc(
+        "No encontramos un colportor con ese número de documento. Por favor comunícate con el área encargada del CEPEV.",
+      );
+      setBuscando(false);
+      return;
     }
 
     // Verificar si ya tiene registro ese día
     const { data: regExistente } = await supabase
-      .from('siembra')
-      .select('id, kits_vendidos, seguidores_ivpt')
-      .eq('colportor_id', data.id)
-      .eq('fecha', enlace!.fecha)
-      .maybeSingle()
+      .from("siembra")
+      .select("id, kits_vendidos, seguidores_ivpt")
+      .eq("colportor_id", data.id)
+      .eq("fecha", enlace!.fecha)
+      .maybeSingle();
 
-    setColportor(data)
+    setColportor(data);
     if (regExistente) {
-      setYaRegistro(true)
-      setRegistroExistente(regExistente)
-      setKits(String(regExistente.kits_vendidos))
-      setIvpt(String(regExistente.seguidores_ivpt))
+      setYaRegistro(true);
+      setRegistroExistente(regExistente);
+      setKits(String(regExistente.kits_vendidos));
+      setIvpt(String(regExistente.seguidores_ivpt));
     }
-    setBuscando(false)
-    setEstado('formulario')
+    setBuscando(false);
+    setEstado("formulario");
   }
 
   async function handleGuardar() {
-    if (!colportor || !enlace) return
-    setGuardando(true)
+    if (!colportor || !enlace) return;
+    setGuardando(true);
 
     const { data: campoActivo } = await supabase
-      .from('campo_colportores')
-      .select('campo_id')
-      .eq('colportor_id', colportor.id)
-      .eq('estado', 'activo')
-      .maybeSingle()
+      .from("campo_colportores")
+      .select("campo_id")
+      .eq("colportor_id", colportor.id)
+      .eq("estado", "activo")
+      .maybeSingle();
 
     if (yaRegistro && registroExistente) {
-      await supabase.from('siembra').update({
-        kits_vendidos: parseInt(kits) || 0,
-        seguidores_ivpt: parseInt(ivpt) || 0
-      }).eq('id', registroExistente.id)
+      await supabase
+        .from("siembra")
+        .update({
+          kits_vendidos: parseInt(kits) || 0,
+          seguidores_ivpt: parseInt(ivpt) || 0,
+        })
+        .eq("id", registroExistente.id);
     } else {
-      await supabase.from('siembra').insert({
+      await supabase.from("siembra").insert({
         colportor_id: colportor.id,
         campo_id: campoActivo?.campo_id || null,
         fecha: enlace.fecha,
         kits_vendidos: parseInt(kits) || 0,
-        seguidores_ivpt: parseInt(ivpt) || 0
-      })
+        seguidores_ivpt: parseInt(ivpt) || 0,
+      });
     }
 
-    setGuardando(false)
-    setEstado('enviado')
+    setGuardando(false);
+    setEstado("enviado");
   }
 
   function formatFecha(f: string) {
-    return new Date(f + 'T00:00:00').toLocaleDateString('es-CO', {
-      weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
-    })
+    return new Date(f + "T00:00:00").toLocaleDateString("es-CO", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
   }
 
   return (
@@ -190,82 +206,103 @@ export default function SiembraPublica() {
           <div className="sp-gold-bar" />
 
           <div className="sp-head">
-            <div className="sp-logo-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="sp-logo-row"style={{ display: "flex", alignItems: "center", gap: "10px" }}>             
               <div className="sp-logo-icon" style={{ flexShrink: 0 }}>
-              <img 
-        src="/logos/logo.png" 
-        alt="Logo" 
-        style={{ 
-          width: '55px',    /* Logo más grande como pediste */
-          height: 'auto', 
-          display: 'block' 
-        }} 
-      />
+                <img src="/logos/logo.png" alt="Logo" style={{width: "55px",height: "auto",display: "block",}}/>
               </div>
-              <div className="sp-logo-name">CEP<span>EV</span></div>
+              <div className="sp-logo-name">CEP<span>EV</span>
+              </div>
             </div>
 
-            {estado === 'validando' && (
+            {estado === "validando" && (
               <>
                 <div className="sp-title">Verificando enlace...</div>
                 <div className="sp-sub">Por favor espera un momento.</div>
               </>
             )}
-            {estado === 'expirado' && (
+            {estado === "expirado" && (
               <div className="sp-center">
                 <div className="sp-icon-big">⏰</div>
                 <div className="sp-msg-title">Enlace expirado</div>
-                <div className="sp-msg-sub">Este enlace ya no está disponible. Comunícate con el área encargada del CEPEV para obtener uno nuevo.</div>
+                <div className="sp-msg-sub">
+                  Este enlace ya no está disponible. Comunícate con el área
+                  encargada del CEPEV para obtener uno nuevo.
+                </div>
               </div>
             )}
-            {(estado === 'documento' || estado === 'formulario') && (
+            {(estado === "documento" || estado === "formulario") && (
               <>
                 <div className="sp-title">Registro de siembra</div>
-                <div className="sp-sub">Ingresa tu número de documento para continuar.</div>
+                <div className="sp-sub">
+                  Ingresa tu número de documento para continuar.
+                </div>
                 {enlace && (
                   <div className="sp-fecha-badge">
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <rect x="1" y="2" width="10" height="9" rx="1.5" stroke="#B8760A" strokeWidth="1.2"/>
-                      <path d="M4 1v2M8 1v2M1 5h10" stroke="#B8760A" strokeWidth="1.2" strokeLinecap="round"/>
+                      <rect
+                        x="1"
+                        y="2"
+                        width="10"
+                        height="9"
+                        rx="1.5"
+                        stroke="#B8760A"
+                        strokeWidth="1.2"
+                      />
+                      <path
+                        d="M4 1v2M8 1v2M1 5h10"
+                        stroke="#B8760A"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                      />
                     </svg>
                     <span>{formatFecha(enlace.fecha)}</span>
                   </div>
                 )}
               </>
             )}
-            {estado === 'enviado' && (
+            {estado === "enviado" && (
               <div className="sp-center">
                 <div className="sp-icon-big">🌱</div>
                 <div className="sp-msg-title">¡Registro exitoso!</div>
                 <div className="sp-msg-sub">
-                  Tu siembra del día {enlace && formatFecha(enlace.fecha)} ha sido registrada correctamente.
+                  Tu siembra del día {enlace && formatFecha(enlace.fecha)} ha
+                  sido registrada correctamente.
                 </div>
               </div>
             )}
           </div>
 
           {/* Cuerpo según estado */}
-          {estado === 'documento' && (
+          {estado === "documento" && (
             <div className="sp-body">
               <div className="sp-field-group">
                 <label className="sp-field-label">Número de documento</label>
                 <input
-                  className={`sp-input ${errorDoc ? 'error' : ''}`}
+                  className={`sp-input ${errorDoc ? "error" : ""}`}
                   type="text"
                   placeholder="Ingresa tu número de documento"
                   value={documento}
-                  onChange={e => { setDocumento(e.target.value); setErrorDoc('') }}
-                  onKeyDown={e => e.key === 'Enter' && handleBuscarDocumento()}
+                  onChange={(e) => {
+                    setDocumento(e.target.value);
+                    setErrorDoc("");
+                  }}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && handleBuscarDocumento()
+                  }
                 />
                 {errorDoc && <div className="sp-error">{errorDoc}</div>}
               </div>
-              <button className="sp-btn" onClick={handleBuscarDocumento} disabled={buscando || !documento.trim()}>
-                {buscando ? 'Verificando...' : 'Continuar →'}
+              <button
+                className="sp-btn"
+                onClick={handleBuscarDocumento}
+                disabled={buscando || !documento.trim()}
+              >
+                {buscando ? "Verificando..." : "Continuar →"}
               </button>
             </div>
           )}
 
-          {estado === 'formulario' && colportor && (
+          {estado === "formulario" && colportor && (
             <div className="sp-body">
               <div className="sp-bienvenido">
                 <div className="sp-bienvenido-nombre">Bienvenido(a)</div>
@@ -274,24 +311,43 @@ export default function SiembraPublica() {
 
               {yaRegistro && (
                 <div className="sp-ya-registro">
-                  ✏️ Ya tienes un registro para este día. Puedes actualizar los valores.
+                  ✏️ Ya tienes un registro para este día. Puedes actualizar los
+                  valores.
                 </div>
               )}
 
               <div className="sp-field-group">
                 <label className="sp-field-label">Kits sembrados</label>
                 <div className="sp-num-wrap">
-                  <button className="sp-num-btn" onClick={() => setKits(s => String(Math.max(0, parseInt(s) || 0) - 1))}>−</button>
+                  <button
+                    className="sp-num-btn"
+                    onClick={() =>
+                      setKits((s) => String(Math.max(0, parseInt(s) || 0) - 1))
+                    }
+                  >
+                    −
+                  </button>
                   <input
                     className="sp-num-input"
                     type="text"
                     placeholder="0"
                     value={kits}
-                    onChange={e => setKits(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) =>
+                      setKits(e.target.value.replace(/[^0-9]/g, ""))
+                    }
                   />
-                  <button className="sp-num-btn" onClick={() => setKits(s => String((parseInt(s) || 0) + 1))}>+</button>
+                  <button
+                    className="sp-num-btn"
+                    onClick={() =>
+                      setKits((s) => String((parseInt(s) || 0) + 1))
+                    }
+                  >
+                    +
+                  </button>
                 </div>
-                <div className="sp-field-desc">Número de kits de libros sembrados hoy</div>
+                <div className="sp-field-desc">
+                  Número de kits de libros sembrados hoy
+                </div>
               </div>
 
               <div className="sp-divider" />
@@ -299,26 +355,52 @@ export default function SiembraPublica() {
               <div className="sp-field-group">
                 <label className="sp-field-label">Seguidores IVPT</label>
                 <div className="sp-num-wrap">
-                  <button className="sp-num-btn" onClick={() => setIvpt(s => String(Math.max(0, parseInt(s) || 0) - 1))}>−</button>
+                  <button
+                    className="sp-num-btn"
+                    onClick={() =>
+                      setIvpt((s) => String(Math.max(0, parseInt(s) || 0) - 1))
+                    }
+                  >
+                    −
+                  </button>
                   <input
                     className="sp-num-input"
                     type="text"
                     placeholder="0"
                     value={ivpt}
-                    onChange={e => setIvpt(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) =>
+                      setIvpt(e.target.value.replace(/[^0-9]/g, ""))
+                    }
                   />
-                  <button className="sp-num-btn" onClick={() => setIvpt(s => String((parseInt(s) || 0) + 1))}>+</button>
+                  <button
+                    className="sp-num-btn"
+                    onClick={() =>
+                      setIvpt((s) => String((parseInt(s) || 0) + 1))
+                    }
+                  >
+                    +
+                  </button>
                 </div>
-                <div className="sp-field-desc">Personas que siguieron la página de Instagram del IVPT</div>
+                <div className="sp-field-desc">
+                  Personas que siguieron la página de Instagram del IVPT
+                </div>
               </div>
 
-              <button className="sp-btn gold" onClick={handleGuardar} disabled={guardando}>
-                {guardando ? 'Guardando...' : yaRegistro ? 'Actualizar registro' : 'Enviar registro'}
+              <button
+                className="sp-btn gold"
+                onClick={handleGuardar}
+                disabled={guardando}
+              >
+                {guardando
+                  ? "Guardando..."
+                  : yaRegistro
+                    ? "Actualizar registro"
+                    : "Enviar registro"}
               </button>
             </div>
           )}
         </div>
       </div>
     </>
-  )
+  );
 }
