@@ -1,360 +1,423 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+"use client";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-type User = { id: string; name: string; phone: string; role: string }
+type User = { id: string; name: string; phone: string; role: string };
 
 type Campo = {
-  id: string
-  ciudad: string
-  pais: string
-  fecha_inicio: string
-  fecha_fin: string | null
-  estado: 'activo' | 'cerrado'
-  created_at: string
-}
+  id: string;
+  ciudad: string;
+  pais: string;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  estado: "activo" | "cerrado";
+  created_at: string;
+};
 
 type CampoColportor = {
-  id: string
-  campo_id: string
-  colportor_id: string
-  fecha_ingreso: string
-  fecha_retiro: string | null
-  estado: 'activo' | 'retirado'
+  id: string;
+  campo_id: string;
+  colportor_id: string;
+  fecha_ingreso: string;
+  fecha_retiro: string | null;
+  estado: "activo" | "retirado";
   colportores: {
-    id: string
-    nombre: string
-    tipo_documento: string
-    numero_documento: string
-    categoria: string
-  }
-}
+    id: string;
+    nombre: string;
+    tipo_documento: string;
+    numero_documento: string;
+    categoria: string;
+  };
+};
 
 type Colportor = {
-  id: string
-  nombre: string
-  tipo_documento: string
-  numero_documento: string
-  categoria: string
-}
+  id: string;
+  nombre: string;
+  tipo_documento: string;
+  numero_documento: string;
+  categoria: string;
+};
 
 type SiembraRow = {
-  id: string
-  colportor_id: string
-  campo_id: string
-  fecha: string
-  kits_vendidos: number
-  colportores: { nombre: string }
-}
+  id: string;
+  colportor_id: string;
+  campo_id: string;
+  fecha: string;
+  kits_vendidos: number;
+  colportores: { nombre: string };
+};
 
-type TabDetalle = 'equipo' | 'individual' | 'siembra-equipo'
-type PeriodoSiembra = 'dia' | 'semana' | 'mes'
+type TabDetalle = "equipo" | "individual" | "siembra-equipo";
+type PeriodoSiembra = "dia" | "semana" | "mes";
 
 export default function CamposPanel({ user }: { user: User }) {
-  const [campos, setCampos] = useState<Campo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [vistaDetalle, setVistaDetalle] = useState<Campo | null>(null)
-  const [equipoCampo, setEquipoCampo] = useState<CampoColportor[]>([])
-  const [mostrarHistorial, setMostrarHistorial] = useState(false)
-  const [loadingDetalle, setLoadingDetalle] = useState(false)
-  const [tabDetalle, setTabDetalle] = useState<TabDetalle>('equipo')
+  const [campos, setCampos] = useState<Campo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [vistaDetalle, setVistaDetalle] = useState<Campo | null>(null);
+  const [equipoCampo, setEquipoCampo] = useState<CampoColportor[]>([]);
+  const [mostrarHistorial, setMostrarHistorial] = useState(false);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [tabDetalle, setTabDetalle] = useState<TabDetalle>("equipo");
 
   // Siembra
-  const [siembraData, setSiembraData] = useState<SiembraRow[]>([])
-  const [loadingSiembra, setLoadingSiembra] = useState(false)
-  const [periodoSiembra, setPeriodoSiembra] = useState<PeriodoSiembra>('dia')
-  const [colportorFiltro, setColportorFiltro] = useState<string>('')
-  const [fechaNav, setFechaNav] = useState(new Date())
+  const [siembraData, setSiembraData] = useState<SiembraRow[]>([]);
+  const [loadingSiembra, setLoadingSiembra] = useState(false);
+  const [periodoSiembra, setPeriodoSiembra] = useState<PeriodoSiembra>("dia");
+  const [colportorFiltro, setColportorFiltro] = useState<string>("");
+  const [fechaNav, setFechaNav] = useState(new Date());
 
   // Modal nuevo campo
-  const [modalCampo, setModalCampo] = useState(false)
-  const [formCampo, setFormCampo] = useState({ ciudad: '', departamento: '', pais: 'Colombia' })
-  const [fechaInicio, setFechaInicio] = useState('')
-  const [savingCampo, setSavingCampo] = useState(false)
+  const [modalCampo, setModalCampo] = useState(false);
+  const [formCampo, setFormCampo] = useState({
+    ciudad: "",
+    departamento: "",
+    pais: "Colombia",
+  });
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [savingCampo, setSavingCampo] = useState(false);
 
   // Modal agregar colportor
-  const [modalAgregar, setModalAgregar] = useState(false)
-  const [colportoresDisponibles, setColportoresDisponibles] = useState<Colportor[]>([])
-  const [colportorSeleccionado, setColportorSeleccionado] = useState('')
-  const [savingColportor, setSavingColportor] = useState(false)
-  const [conflicto, setConflicto] = useState<{ nombre: string; campo: string } | null>(null)
-  const [pendienteTraslado, setPendienteTraslado] = useState<string | null>(null)
+  const [modalAgregar, setModalAgregar] = useState(false);
+  const [colportoresDisponibles, setColportoresDisponibles] = useState<
+    Colportor[]
+  >([]);
+  const [colportorSeleccionado, setColportorSeleccionado] = useState("");
+  const [savingColportor, setSavingColportor] = useState(false);
+  const [conflicto, setConflicto] = useState<{
+    nombre: string;
+    campo: string;
+  } | null>(null);
+  const [pendienteTraslado, setPendienteTraslado] = useState<string | null>(
+    null,
+  );
 
   // Confirmaciones
-  const [confirmarCierre, setConfirmarCierre] = useState<string | null>(null)
-  const [confirmarRetiro, setConfirmarRetiro] = useState<string | null>(null)
-  const [confirmarReactivar, setConfirmarReactivar] = useState<string | null>(null)
-
-  useEffect(() => { fetchCampos() }, [])
+  const [confirmarCierre, setConfirmarCierre] = useState<string | null>(null);
+  const [confirmarRetiro, setConfirmarRetiro] = useState<string | null>(null);
+  const [confirmarReactivar, setConfirmarReactivar] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (vistaDetalle && (tabDetalle === 'individual' || tabDetalle === 'siembra-equipo')) {
-      fetchSiembra(vistaDetalle.id)
+    fetchCampos();
+  }, []);
+
+  useEffect(() => {
+    if (
+      vistaDetalle &&
+      (tabDetalle === "individual" || tabDetalle === "siembra-equipo")
+    ) {
+      fetchSiembra(vistaDetalle.id);
     }
-  }, [tabDetalle, periodoSiembra, fechaNav, colportorFiltro, vistaDetalle])
+  }, [tabDetalle, periodoSiembra, fechaNav, colportorFiltro, vistaDetalle]);
 
   async function fetchCampos() {
-    setLoading(true)
+    setLoading(true);
     const { data } = await supabase
-      .from('campos')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setCampos(data || [])
-    setLoading(false)
+      .from("campos")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setCampos(data || []);
+    setLoading(false);
   }
 
   async function fetchDetalle(campo: Campo) {
-    setVistaDetalle(campo)
-    setMostrarHistorial(false)
-    setTabDetalle('equipo')
-    setFechaNav(new Date())
-    setLoadingDetalle(true)
+    setVistaDetalle(campo);
+    setMostrarHistorial(false);
+    setTabDetalle("equipo");
+    setFechaNav(new Date());
+    setLoadingDetalle(true);
     const { data } = await supabase
-      .from('campo_colportores')
-      .select(`*, colportores(id, nombre, tipo_documento, numero_documento, categoria)`)
-      .eq('campo_id', campo.id)
-      .order('fecha_ingreso', { ascending: false })
-    setEquipoCampo(data || [])
-    setLoadingDetalle(false)
+      .from("campo_colportores")
+      .select(
+        `*, colportores(id, nombre, tipo_documento, numero_documento, categoria)`,
+      )
+      .eq("campo_id", campo.id)
+      .order("fecha_ingreso", { ascending: false });
+    setEquipoCampo(data || []);
+    setLoadingDetalle(false);
   }
 
   async function fetchSiembra(campoId: string) {
-    setLoadingSiembra(true)
-    const { inicio, fin } = getRango()
+    setLoadingSiembra(true);
+    const { inicio, fin } = getRango();
     let query = supabase
-      .from('siembra')
+      .from("siembra")
       .select(`*, colportores(nombre)`)
-      .eq('campo_id', campoId)
-      .gte('fecha', inicio)
-      .lte('fecha', fin)
-      .order('fecha', { ascending: true })
+      .eq("campo_id", campoId)
+      .gte("fecha", inicio)
+      .lte("fecha", fin)
+      .order("fecha", { ascending: true });
 
-    if (tabDetalle === 'individual' && colportorFiltro) {
-      query = query.eq('colportor_id', colportorFiltro)
+    if (tabDetalle === "individual" && colportorFiltro) {
+      query = query.eq("colportor_id", colportorFiltro);
     }
 
-    const { data } = await query
-    setSiembraData(data || [])
-    setLoadingSiembra(false)
+    const { data } = await query;
+    setSiembraData(data || []);
+    setLoadingSiembra(false);
   }
 
   function getRango(): { inicio: string; fin: string } {
-    const d = new Date(fechaNav)
-    if (periodoSiembra === 'dia') {
-      const f = d.toISOString().split('T')[0]
-      return { inicio: f, fin: f }
+    const d = new Date(fechaNav);
+    if (periodoSiembra === "dia") {
+      const f = d.toISOString().split("T")[0];
+      return { inicio: f, fin: f };
     }
-    if (periodoSiembra === 'semana') {
-      const day = d.getDay()
-      const diffLunes = (day === 0 ? -6 : 1 - day)
-      const lunes = new Date(d)
-      lunes.setDate(d.getDate() + diffLunes)
-      const domingo = new Date(lunes)
-      domingo.setDate(lunes.getDate() + 6)
+    if (periodoSiembra === "semana") {
+      const day = d.getDay();
+      const diffLunes = day === 0 ? -6 : 1 - day;
+      const lunes = new Date(d);
+      lunes.setDate(d.getDate() + diffLunes);
+      const domingo = new Date(lunes);
+      domingo.setDate(lunes.getDate() + 6);
       return {
-        inicio: lunes.toISOString().split('T')[0],
-        fin: domingo.toISOString().split('T')[0]
-      }
+        inicio: lunes.toISOString().split("T")[0],
+        fin: domingo.toISOString().split("T")[0],
+      };
     }
     // mes
-    const inicio = new Date(d.getFullYear(), d.getMonth(), 1)
-    const fin = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+    const inicio = new Date(d.getFullYear(), d.getMonth(), 1);
+    const fin = new Date(d.getFullYear(), d.getMonth() + 1, 0);
     return {
-      inicio: inicio.toISOString().split('T')[0],
-      fin: fin.toISOString().split('T')[0]
-    }
+      inicio: inicio.toISOString().split("T")[0],
+      fin: fin.toISOString().split("T")[0],
+    };
   }
 
   function navAnterior() {
-    const d = new Date(fechaNav)
-    if (periodoSiembra === 'dia') d.setDate(d.getDate() - 1)
-    if (periodoSiembra === 'semana') d.setDate(d.getDate() - 7)
-    if (periodoSiembra === 'mes') d.setMonth(d.getMonth() - 1)
-    setFechaNav(d)
+    const d = new Date(fechaNav);
+    if (periodoSiembra === "dia") d.setDate(d.getDate() - 1);
+    if (periodoSiembra === "semana") d.setDate(d.getDate() - 7);
+    if (periodoSiembra === "mes") d.setMonth(d.getMonth() - 1);
+    setFechaNav(d);
   }
 
   function navSiguiente() {
-    const d = new Date(fechaNav)
-    if (periodoSiembra === 'dia') d.setDate(d.getDate() + 1)
-    if (periodoSiembra === 'semana') d.setDate(d.getDate() + 7)
-    if (periodoSiembra === 'mes') d.setMonth(d.getMonth() + 1)
-    setFechaNav(d)
+    const d = new Date(fechaNav);
+    if (periodoSiembra === "dia") d.setDate(d.getDate() + 1);
+    if (periodoSiembra === "semana") d.setDate(d.getDate() + 7);
+    if (periodoSiembra === "mes") d.setMonth(d.getMonth() + 1);
+    setFechaNav(d);
   }
 
   function getLabelNav(): string {
-    const { inicio, fin } = getRango()
-    if (periodoSiembra === 'dia') return formatFecha(inicio)
-    if (periodoSiembra === 'semana') return `${formatFecha(inicio)} — ${formatFecha(fin)}`
-    return new Date(fechaNav.getFullYear(), fechaNav.getMonth(), 1)
-      .toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+    const { inicio, fin } = getRango();
+    if (periodoSiembra === "dia") return formatFecha(inicio);
+    if (periodoSiembra === "semana")
+      return `${formatFecha(inicio)} — ${formatFecha(fin)}`;
+    return new Date(
+      fechaNav.getFullYear(),
+      fechaNav.getMonth(),
+      1,
+    ).toLocaleDateString("es-CO", { month: "long", year: "numeric" });
   }
 
   async function handleCrearCampo() {
-    if (!formCampo.ciudad || !formCampo.pais || !fechaInicio) return
-    setSavingCampo(true)
+    if (!formCampo.ciudad || !formCampo.pais || !fechaInicio) return;
+    setSavingCampo(true);
     const paisCompleto = formCampo.departamento
       ? `${formCampo.departamento}, ${formCampo.pais}`
-      : formCampo.pais
-    await supabase.from('campos').insert({
+      : formCampo.pais;
+    await supabase.from("campos").insert({
       ciudad: formCampo.ciudad,
       pais: paisCompleto,
       fecha_inicio: fechaInicio,
-      estado: 'activo'
-    })
-    setSavingCampo(false)
-    setModalCampo(false)
-    setFormCampo({ ciudad: '', departamento: '', pais: 'Colombia' })
-    setFechaInicio('')
-    fetchCampos()
+      estado: "activo",
+    });
+    setSavingCampo(false);
+    setModalCampo(false);
+    setFormCampo({ ciudad: "", departamento: "", pais: "Colombia" });
+    setFechaInicio("");
+    fetchCampos();
   }
 
   async function handleCerrarCampo(id: string) {
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = new Date().toISOString().split("T")[0];
     const { data: activos } = await supabase
-      .from('campo_colportores')
-      .select('colportor_id')
-      .eq('campo_id', id)
-      .eq('estado', 'activo')
+      .from("campo_colportores")
+      .select("colportor_id")
+      .eq("campo_id", id)
+      .eq("estado", "activo");
     if (activos) {
       for (const a of activos) {
-        await supabase.from('colportores').update({ ubicacion_actual: null }).eq('id', a.colportor_id)
+        await supabase
+          .from("colportores")
+          .update({ ubicacion_actual: null })
+          .eq("id", a.colportor_id);
       }
     }
-    await supabase.from('campo_colportores')
-      .update({ estado: 'retirado', fecha_retiro: hoy })
-      .eq('campo_id', id).eq('estado', 'activo')
-    await supabase.from('campos').update({ estado: 'cerrado', fecha_fin: hoy }).eq('id', id)
-    setConfirmarCierre(null)
+    await supabase
+      .from("campo_colportores")
+      .update({ estado: "retirado", fecha_retiro: hoy })
+      .eq("campo_id", id)
+      .eq("estado", "activo");
+    await supabase
+      .from("campos")
+      .update({ estado: "cerrado", fecha_fin: hoy })
+      .eq("id", id);
+    setConfirmarCierre(null);
     if (vistaDetalle?.id === id) {
-      const updated = { ...vistaDetalle, estado: 'cerrado' as const, fecha_fin: hoy }
-      setVistaDetalle(updated)
-      fetchDetalle(updated)
+      const updated = {
+        ...vistaDetalle,
+        estado: "cerrado" as const,
+        fecha_fin: hoy,
+      };
+      setVistaDetalle(updated);
+      fetchDetalle(updated);
     }
-    fetchCampos()
+    fetchCampos();
   }
 
   async function handleReactivarCampo(id: string) {
-    const hoy = new Date().toISOString().split('T')[0]
-    await supabase.from('campos')
-      .update({ estado: 'activo', fecha_fin: null, fecha_inicio: hoy })
-      .eq('id', id)
-    setConfirmarReactivar(null)
+    const hoy = new Date().toISOString().split("T")[0];
+    await supabase
+      .from("campos")
+      .update({ estado: "activo", fecha_fin: null, fecha_inicio: hoy })
+      .eq("id", id);
+    setConfirmarReactivar(null);
     if (vistaDetalle?.id === id) {
-      const updated = { ...vistaDetalle, estado: 'activo' as const, fecha_fin: null, fecha_inicio: hoy }
-      setVistaDetalle(updated)
-      fetchDetalle(updated)
+      const updated = {
+        ...vistaDetalle,
+        estado: "activo" as const,
+        fecha_fin: null,
+        fecha_inicio: hoy,
+      };
+      setVistaDetalle(updated);
+      fetchDetalle(updated);
     }
-    fetchCampos()
+    fetchCampos();
   }
 
   async function handleRetirarColportor(registro: CampoColportor) {
-    const hoy = new Date().toISOString().split('T')[0]
-    await supabase.from('campo_colportores')
-      .update({ estado: 'retirado', fecha_retiro: hoy }).eq('id', registro.id)
-    await supabase.from('colportores')
-      .update({ ubicacion_actual: null }).eq('id', registro.colportor_id)
-    setConfirmarRetiro(null)
-    if (vistaDetalle) fetchDetalle(vistaDetalle)
+    const hoy = new Date().toISOString().split("T")[0];
+    await supabase
+      .from("campo_colportores")
+      .update({ estado: "retirado", fecha_retiro: hoy })
+      .eq("id", registro.id);
+    await supabase
+      .from("colportores")
+      .update({ ubicacion_actual: null })
+      .eq("id", registro.colportor_id);
+    setConfirmarRetiro(null);
+    if (vistaDetalle) fetchDetalle(vistaDetalle);
   }
 
   async function abrirModalAgregar() {
     const { data: todos } = await supabase
-      .from('colportores')
-      .select('id, nombre, tipo_documento, numero_documento, categoria')
-      .order('nombre')
-    setColportoresDisponibles(todos || [])
-    setColportorSeleccionado('')
-    setConflicto(null)
-    setPendienteTraslado(null)
-    setModalAgregar(true)
+      .from("colportores")
+      .select("id, nombre, tipo_documento, numero_documento, categoria")
+      .order("nombre");
+    setColportoresDisponibles(todos || []);
+    setColportorSeleccionado("");
+    setConflicto(null);
+    setPendienteTraslado(null);
+    setModalAgregar(true);
   }
 
   async function handleAgregarColportor() {
-    if (!colportorSeleccionado || !vistaDetalle) return
-    setSavingColportor(true)
+    if (!colportorSeleccionado || !vistaDetalle) return;
+    setSavingColportor(true);
     const yaEnEsteCampo = equipoCampo.find(
-      e => e.colportor_id === colportorSeleccionado && e.estado === 'activo'
-    )
+      (e) => e.colportor_id === colportorSeleccionado && e.estado === "activo",
+    );
     if (yaEnEsteCampo) {
-      const col = colportoresDisponibles.find(c => c.id === colportorSeleccionado)
-      setConflicto({ nombre: col?.nombre || '', campo: 'este campo' })
-      setSavingColportor(false)
-      return
+      const col = colportoresDisponibles.find(
+        (c) => c.id === colportorSeleccionado,
+      );
+      setConflicto({ nombre: col?.nombre || "", campo: "este campo" });
+      setSavingColportor(false);
+      return;
     }
     const { data: enOtroCampo } = await supabase
-      .from('campo_colportores')
+      .from("campo_colportores")
       .select(`*, campos(ciudad, pais)`)
-      .eq('colportor_id', colportorSeleccionado)
-      .eq('estado', 'activo')
-      .neq('campo_id', vistaDetalle.id)
-      .maybeSingle()
+      .eq("colportor_id", colportorSeleccionado)
+      .eq("estado", "activo")
+      .neq("campo_id", vistaDetalle.id)
+      .maybeSingle();
     if (enOtroCampo) {
-      const col = colportoresDisponibles.find(c => c.id === colportorSeleccionado)
-      const campoNombre = `Campo en ${(enOtroCampo as any).campos.ciudad}, ${(enOtroCampo as any).campos.pais}`
-      setConflicto({ nombre: col?.nombre || '', campo: campoNombre })
-      setPendienteTraslado(colportorSeleccionado)
-      setSavingColportor(false)
-      return
+      const col = colportoresDisponibles.find(
+        (c) => c.id === colportorSeleccionado,
+      );
+      const campoNombre = `Campo en ${(enOtroCampo as any).campos.ciudad}, ${(enOtroCampo as any).campos.pais}`;
+      setConflicto({ nombre: col?.nombre || "", campo: campoNombre });
+      setPendienteTraslado(colportorSeleccionado);
+      setSavingColportor(false);
+      return;
     }
-    await ejecutarAgregar(colportorSeleccionado)
-    setSavingColportor(false)
+    await ejecutarAgregar(colportorSeleccionado);
+    setSavingColportor(false);
   }
 
   async function ejecutarAgregar(colportorId: string, traslado = false) {
-    const hoy = new Date().toISOString().split('T')[0]
+    const hoy = new Date().toISOString().split("T")[0];
     if (traslado) {
-      await supabase.from('campo_colportores')
-        .update({ estado: 'retirado', fecha_retiro: hoy })
-        .eq('colportor_id', colportorId).eq('estado', 'activo')
+      await supabase
+        .from("campo_colportores")
+        .update({ estado: "retirado", fecha_retiro: hoy })
+        .eq("colportor_id", colportorId)
+        .eq("estado", "activo");
     }
-    await supabase.from('campo_colportores').insert({
+    await supabase.from("campo_colportores").insert({
       campo_id: vistaDetalle!.id,
       colportor_id: colportorId,
       fecha_ingreso: hoy,
-      estado: 'activo'
-    })
-    await supabase.from('colportores')
+      estado: "activo",
+    });
+    await supabase
+      .from("colportores")
       .update({ ubicacion_actual: vistaDetalle!.ciudad })
-      .eq('id', colportorId)
-    setModalAgregar(false)
-    setConflicto(null)
-    setPendienteTraslado(null)
-    fetchDetalle(vistaDetalle!)
+      .eq("id", colportorId);
+    setModalAgregar(false);
+    setConflicto(null);
+    setPendienteTraslado(null);
+    fetchDetalle(vistaDetalle!);
   }
 
-  const equipoActivo = equipoCampo.filter(e => e.estado === 'activo')
-  const equipoMostrado = mostrarHistorial ? equipoCampo : equipoActivo
+  const equipoActivo = equipoCampo.filter((e) => e.estado === "activo");
+  const equipoMostrado = mostrarHistorial ? equipoCampo : equipoActivo;
 
   // Agrupar siembra por colportor para vista equipo
   const siembraEquipoAgrupada = equipoCampo
-    .filter(e => e.colportores)
-    .map(e => {
+    .filter((e) => e.colportores)
+    .map((e) => {
       const kits = siembraData
-        .filter(s => s.colportor_id === e.colportor_id)
-        .reduce((a, s) => a + s.kits_vendidos, 0)
-      return { id: e.colportor_id, nombre: e.colportores.nombre, kits }
+        .filter((s) => s.colportor_id === e.colportor_id)
+        .reduce((a, s) => a + s.kits_vendidos, 0);
+      return { id: e.colportor_id, nombre: e.colportores.nombre, kits };
     })
-    .filter((v, i, arr) => arr.findIndex(x => x.id === v.id) === i)
-    .sort((a, b) => b.kits - a.kits)
+    .filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i)
+    .sort((a, b) => b.kits - a.kits);
 
-  const totalKitsEquipo = siembraEquipoAgrupada.reduce((a, e) => a + e.kits, 0)
+  const totalKitsEquipo = siembraEquipoAgrupada.reduce((a, e) => a + e.kits, 0);
 
   // Siembra individual agrupada por fecha
-  const siembraIndividualPorFecha = siembraData.reduce((acc, s) => {
-    acc[s.fecha] = (acc[s.fecha] || 0) + s.kits_vendidos
-    return acc
-  }, {} as Record<string, number>)
+  const siembraIndividualPorFecha = siembraData.reduce(
+    (acc, s) => {
+      acc[s.fecha] = (acc[s.fecha] || 0) + s.kits_vendidos;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
-  const totalKitsIndividual = siembraData.reduce((a, s) => a + s.kits_vendidos, 0)
+  const totalKitsIndividual = siembraData.reduce(
+    (a, s) => a + s.kits_vendidos,
+    0,
+  );
 
   function formatFecha(f: string) {
-    return new Date(f + 'T00:00:00').toLocaleDateString('es-CO', {
-      day: '2-digit', month: 'short', year: 'numeric'
-    })
+    return new Date(f + "T00:00:00").toLocaleDateString("es-CO", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   }
 
-  const colportoresUnicos = equipoCampo
-    .filter((v, i, arr) => arr.findIndex(x => x.colportor_id === v.colportor_id) === i)
+  const colportoresUnicos = equipoCampo.filter(
+    (v, i, arr) =>
+      arr.findIndex((x) => x.colportor_id === v.colportor_id) === i,
+  );
 
   return (
     <>
@@ -490,48 +553,82 @@ export default function CamposPanel({ user }: { user: User }) {
           <div>
             <div className="ca-topbar-title">Campos</div>
             <div className="ca-topbar-sub">
-              {campos.filter(c => c.estado === 'activo').length} activos · {campos.filter(c => c.estado === 'cerrado').length} cerrados
+              {campos.filter((c) => c.estado === "activo").length} activos ·{" "}
+              {campos.filter((c) => c.estado === "cerrado").length} cerrados
             </div>
           </div>
-          <button className="ca-add-btn" onClick={() => setModalCampo(true)}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v12M1 7h12" stroke="#0D1F45" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            Nuevo Campo
-          </button>
+          {user.role === "admin" && (
+            <button className="ca-add-btn" onClick={() => setModalCampo(true)}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M7 1v12M1 7h12"
+                  stroke="#0D1F45"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Nuevo Campo
+            </button>
+          )}
         </div>
 
         <div className="ca-content">
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#8A9CC0', fontSize: 13 }}>Cargando...</div>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "2rem",
+                color: "#8A9CC0",
+                fontSize: 13,
+              }}
+            >
+              Cargando...
+            </div>
           ) : (
             <div className="ca-layout">
               {/* Lista */}
               <div className="ca-lista">
                 {campos.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: '#8A9CC0', fontSize: 13 }}>
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "2rem",
+                      color: "#8A9CC0",
+                      fontSize: 13,
+                    }}
+                  >
                     No hay campos registrados
                   </div>
                 )}
-                {campos.map(campo => (
+                {campos.map((campo) => (
                   <div
                     key={campo.id}
-                    className={`campo-card ${vistaDetalle?.id === campo.id ? 'sel' : ''}`}
+                    className={`campo-card ${vistaDetalle?.id === campo.id ? "sel" : ""}`}
                     onClick={() => fetchDetalle(campo)}
                   >
                     <div className="campo-card-top">
                       <div>
-                        <div className="campo-nombre">Campo en {campo.ciudad}</div>
+                        <div className="campo-nombre">
+                          Campo en {campo.ciudad}
+                        </div>
                         <div className="campo-pais">{campo.pais}</div>
                       </div>
-                      <span className={campo.estado === 'activo' ? 'b-activo' : 'b-cerrado'}>
-                        {campo.estado === 'activo' ? 'Activo' : 'Cerrado'}
+                      <span
+                        className={
+                          campo.estado === "activo" ? "b-activo" : "b-cerrado"
+                        }
+                      >
+                        {campo.estado === "activo" ? "Activo" : "Cerrado"}
                       </span>
                     </div>
                     <div className="campo-card-bottom">
-                      <span className="campo-fecha">Desde {formatFecha(campo.fecha_inicio)}</span>
+                      <span className="campo-fecha">
+                        Desde {formatFecha(campo.fecha_inicio)}
+                      </span>
                       {campo.fecha_fin && (
-                        <span className="campo-fecha">Hasta {formatFecha(campo.fecha_fin)}</span>
+                        <span className="campo-fecha">
+                          Hasta {formatFecha(campo.fecha_fin)}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -550,64 +647,120 @@ export default function CamposPanel({ user }: { user: User }) {
                     {/* Header */}
                     <div className="detalle-head">
                       <div>
-                        <div className="detalle-title">Campo en {vistaDetalle.ciudad}</div>
+                        <div className="detalle-title">
+                          Campo en {vistaDetalle.ciudad}
+                        </div>
                         <div className="detalle-sub">
-                          {vistaDetalle.pais} · Desde {formatFecha(vistaDetalle.fecha_inicio)}
-                          {vistaDetalle.fecha_fin && ` · Hasta ${formatFecha(vistaDetalle.fecha_fin)}`}
+                          {vistaDetalle.pais} · Desde{" "}
+                          {formatFecha(vistaDetalle.fecha_inicio)}
+                          {vistaDetalle.fecha_fin &&
+                            ` · Hasta ${formatFecha(vistaDetalle.fecha_fin)}`}
                         </div>
                       </div>
                       <div className="detalle-head-actions">
-                        {vistaDetalle.estado === 'activo' ? (
-                          <>
-                            <button className="btn-agregar" onClick={abrirModalAgregar}>
-                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                <path d="M6 1v10M1 6h10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/>
-                              </svg>
-                              Agregar colportor
+                        {user?.role === "admin" &&
+                          (vistaDetalle.estado === "activo" ? (
+                            <>
+                              <button
+                                className="btn-agregar"
+                                onClick={abrirModalAgregar}
+                              >
+                                <svg
+                                  width="12"
+                                  height="12"
+                                  viewBox="0 0 12 12"
+                                  fill="none"
+                                >
+                                  <path
+                                    d="M6 1v10M1 6h10"
+                                    stroke="#fff"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                                Agregar colportor
+                              </button>
+                              <button
+                                className="btn-cerrar-campo"
+                                onClick={() =>
+                                  setConfirmarCierre(vistaDetalle.id)
+                                }
+                              >
+                                Cerrar campo
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn-reactivar"
+                              onClick={() =>
+                                setConfirmarReactivar(vistaDetalle.id)
+                              }
+                            >
+                              Reactivar campo
                             </button>
-                            <button className="btn-cerrar-campo" onClick={() => setConfirmarCierre(vistaDetalle.id)}>
-                              Cerrar campo
-                            </button>
-                          </>
-                        ) : (
-                          <button className="btn-reactivar" onClick={() => setConfirmarReactivar(vistaDetalle.id)}>
-                            ↺ Reactivar campo
-                          </button>
-                        )}
+                          ))}
                       </div>
                     </div>
 
                     {/* Tabs principales */}
                     <div className="detalle-tabs">
-                      <button className={`detalle-tab ${tabDetalle === 'equipo' ? 'on' : ''}`} onClick={() => setTabDetalle('equipo')}>
+                      <button
+                        className={`detalle-tab ${tabDetalle === "equipo" ? "on" : ""}`}
+                        onClick={() => setTabDetalle("equipo")}
+                      >
                         Equipo
                       </button>
-                      <button className={`detalle-tab ${tabDetalle === 'siembra-equipo' ? 'on' : ''}`} onClick={() => setTabDetalle('siembra-equipo')}>
+                      <button
+                        className={`detalle-tab ${tabDetalle === "siembra-equipo" ? "on" : ""}`}
+                        onClick={() => setTabDetalle("siembra-equipo")}
+                      >
                         Siembra del equipo
                       </button>
-                      <button className={`detalle-tab ${tabDetalle === 'individual' ? 'on' : ''}`} onClick={() => setTabDetalle('individual')}>
+                      <button
+                        className={`detalle-tab ${tabDetalle === "individual" ? "on" : ""}`}
+                        onClick={() => setTabDetalle("individual")}
+                      >
                         Siembra individual
                       </button>
                     </div>
 
                     {/* Tab: Equipo */}
-                    {tabDetalle === 'equipo' && (
+                    {tabDetalle === "equipo" && (
                       <>
                         <div className="detalle-toggle">
-                          <button className={`toggle-btn ${!mostrarHistorial ? 'on' : ''}`} onClick={() => setMostrarHistorial(false)}>
+                          <button
+                            className={`toggle-btn ${!mostrarHistorial ? "on" : ""}`}
+                            onClick={() => setMostrarHistorial(false)}
+                          >
                             Equipo activo ({equipoActivo.length})
                           </button>
-                          <button className={`toggle-btn ${mostrarHistorial ? 'on' : ''}`} onClick={() => setMostrarHistorial(true)}>
+                          <button
+                            className={`toggle-btn ${mostrarHistorial ? "on" : ""}`}
+                            onClick={() => setMostrarHistorial(true)}
+                          >
                             Historial completo ({equipoCampo.length})
                           </button>
                         </div>
                         <div className="detalle-body">
                           {loadingDetalle ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#8A9CC0', fontSize: 13 }}>Cargando...</div>
+                            <div
+                              style={{
+                                textAlign: "center",
+                                padding: "2rem",
+                                color: "#8A9CC0",
+                                fontSize: 13,
+                              }}
+                            >
+                              Cargando...
+                            </div>
                           ) : equipoMostrado.length === 0 ? (
                             <div className="empty-detalle">
                               <div className="empty-icon">👥</div>
-                              <div>{mostrarHistorial ? 'Sin historial' : 'No hay colportores activos'}</div>
+                              <div>
+                                {mostrarHistorial
+                                  ? "Sin historial"
+                                  : "No hay colportores activos"}
+                              </div>
                             </div>
                           ) : (
                             <table className="equipo-table">
@@ -618,31 +771,82 @@ export default function CamposPanel({ user }: { user: User }) {
                                   <th>Ingresó</th>
                                   {mostrarHistorial && <th>Retiró</th>}
                                   {mostrarHistorial && <th>Estado</th>}
-                                  {!mostrarHistorial && vistaDetalle.estado === 'activo' && <th></th>}
+                                  {!mostrarHistorial &&
+                                    vistaDetalle.estado === "activo" && (
+                                      <th></th>
+                                    )}
                                 </tr>
                               </thead>
                               <tbody>
-                                {equipoMostrado.map(e => (
+                                {equipoMostrado.map((e) => (
                                   <tr key={e.id}>
                                     <td>
-                                      <div style={{ fontWeight: 600 }}>{e.colportores.nombre}</div>
-                                      <div className="td-muted">{e.colportores.tipo_documento} · {e.colportores.numero_documento}</div>
+                                      <div style={{ fontWeight: 600 }}>
+                                        {e.colportores.nombre}
+                                      </div>
+                                      <div className="td-muted">
+                                        {e.colportores.tipo_documento} ·{" "}
+                                        {e.colportores.numero_documento}
+                                      </div>
                                     </td>
-                                    <td><span className="b-cat">{e.colportores.categoria}</span></td>
-                                    <td className="td-muted">{formatFecha(e.fecha_ingreso)}</td>
-                                    {mostrarHistorial && <td className="td-muted">{e.fecha_retiro ? formatFecha(e.fecha_retiro) : '—'}</td>}
+                                    <td>
+                                      <span className="b-cat">
+                                        {e.colportores.categoria}
+                                      </span>
+                                    </td>
+                                    <td className="td-muted">
+                                      {formatFecha(e.fecha_ingreso)}
+                                    </td>
                                     {mostrarHistorial && (
-                                      <td><span className={e.estado === 'activo' ? 'b-activo' : 'b-cerrado'}>{e.estado === 'activo' ? 'Activo' : 'Retirado'}</span></td>
-                                    )}
-                                    {!mostrarHistorial && vistaDetalle.estado === 'activo' && (
-                                      <td>
-                                        <button className="act-btn danger" onClick={() => setConfirmarRetiro(e.id)} title="Retirar">
-                                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                            <path d="M2 6h8" stroke="#8A9CC0" strokeWidth="1.5" strokeLinecap="round"/>
-                                          </svg>
-                                        </button>
+                                      <td className="td-muted">
+                                        {e.fecha_retiro
+                                          ? formatFecha(e.fecha_retiro)
+                                          : "—"}
                                       </td>
                                     )}
+                                    {mostrarHistorial && (
+                                      <td>
+                                        <span
+                                          className={
+                                            e.estado === "activo"
+                                              ? "b-activo"
+                                              : "b-cerrado"
+                                          }
+                                        >
+                                          {e.estado === "activo"
+                                            ? "Activo"
+                                            : "Retirado"}
+                                        </span>
+                                      </td>
+                                    )}
+                                    {/* Agregamos la validación del rol al inicio de las condiciones */}
+                                    {user?.role === "admin" &&
+                                      !mostrarHistorial &&
+                                      vistaDetalle.estado === "activo" && (
+                                        <td>
+                                          <button
+                                            className="act-btn danger"
+                                            onClick={() =>
+                                              setConfirmarRetiro(e.id)
+                                            }
+                                            title="Retirar"
+                                          >
+                                            <svg
+                                              width="12"
+                                              height="12"
+                                              viewBox="0 0 12 12"
+                                              fill="none"
+                                            >
+                                              <path
+                                                d="M2 6h8"
+                                                stroke="#8A9CC0"
+                                                strokeWidth="1.5"
+                                                strokeLinecap="round"
+                                              />
+                                            </svg>
+                                          </button>
+                                        </td>
+                                      )}
                                   </tr>
                                 ))}
                               </tbody>
@@ -653,54 +857,135 @@ export default function CamposPanel({ user }: { user: User }) {
                     )}
 
                     {/* Tab: Siembra del equipo */}
-                    {tabDetalle === 'siembra-equipo' && (
+                    {tabDetalle === "siembra-equipo" && (
                       <>
                         <div className="siembra-nav">
                           <div className="periodo-btns">
-                            {(['dia', 'semana', 'mes'] as PeriodoSiembra[]).map(p => (
-                              <button key={p} className={`periodo-btn ${periodoSiembra === p ? 'on' : ''}`} onClick={() => setPeriodoSiembra(p)}>
-                                {p === 'dia' ? 'Día' : p === 'semana' ? 'Semana' : 'Mes'}
-                              </button>
-                            ))}
+                            {(["dia", "semana", "mes"] as PeriodoSiembra[]).map(
+                              (p) => (
+                                <button
+                                  key={p}
+                                  className={`periodo-btn ${periodoSiembra === p ? "on" : ""}`}
+                                  onClick={() => setPeriodoSiembra(p)}
+                                >
+                                  {p === "dia"
+                                    ? "Día"
+                                    : p === "semana"
+                                      ? "Semana"
+                                      : "Mes"}
+                                </button>
+                              ),
+                            )}
                           </div>
                           <div className="nav-fecha">
                             <button className="nav-arrow" onClick={navAnterior}>
-                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 2L3.5 6l4 4" stroke="#0D1F45" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M7.5 2L3.5 6l4 4"
+                                  stroke="#0D1F45"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
                             </button>
-                            <span className="nav-fecha-label">{getLabelNav()}</span>
-                            <button className="nav-arrow" onClick={navSiguiente}>
-                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2l4 4-4 4" stroke="#0D1F45" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            <span className="nav-fecha-label">
+                              {getLabelNav()}
+                            </span>
+                            <button
+                              className="nav-arrow"
+                              onClick={navSiguiente}
+                            >
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M4.5 2l4 4-4 4"
+                                  stroke="#0D1F45"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
                             </button>
                           </div>
                         </div>
                         <div className="detalle-body">
                           {loadingSiembra ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#8A9CC0', fontSize: 13 }}>Cargando...</div>
+                            <div
+                              style={{
+                                textAlign: "center",
+                                padding: "2rem",
+                                color: "#8A9CC0",
+                                fontSize: 13,
+                              }}
+                            >
+                              Cargando...
+                            </div>
                           ) : (
                             <>
                               <div className="siembra-total-card">
                                 <div>
-                                  <div className="siembra-total-label">Total del equipo</div>
-                                  <div className="siembra-total-sub">{getLabelNav()}</div>
+                                  <div className="siembra-total-label">
+                                    Total del equipo
+                                  </div>
+                                  <div className="siembra-total-sub">
+                                    {getLabelNav()}
+                                  </div>
                                 </div>
                                 <div>
-                                  <div className="siembra-total-num">{totalKitsEquipo}</div>
-                                  <div style={{ fontSize: 11, color: '#B8760A', textAlign: 'right' }}>kits</div>
+                                  <div className="siembra-total-num">
+                                    {totalKitsEquipo}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#B8760A",
+                                      textAlign: "right",
+                                    }}
+                                  >
+                                    kits
+                                  </div>
                                 </div>
                               </div>
                               {siembraEquipoAgrupada.length === 0 ? (
                                 <div className="empty-detalle">
                                   <div className="empty-icon">🌱</div>
-                                  <div>Sin registros de siembra en este período</div>
+                                  <div>
+                                    Sin registros de siembra en este período
+                                  </div>
                                 </div>
                               ) : (
-                                <div style={{ background: '#fff', border: '1.5px solid #E4E8F0', borderRadius: 10, overflow: 'hidden' }}>
+                                <div
+                                  style={{
+                                    background: "#fff",
+                                    border: "1.5px solid #E4E8F0",
+                                    borderRadius: 10,
+                                    overflow: "hidden",
+                                  }}
+                                >
                                   {siembraEquipoAgrupada.map((e, i) => (
                                     <div key={e.id} className="siembra-row">
                                       <div>
-                                        <div className="siembra-nombre">{e.nombre}</div>
+                                        <div className="siembra-nombre">
+                                          {e.nombre}
+                                        </div>
                                       </div>
-                                      <span className={e.kits > 0 ? 'b-kits' : 'b-kits-zero'}>{e.kits} kits</span>
+                                      <span
+                                        className={
+                                          e.kits > 0 ? "b-kits" : "b-kits-zero"
+                                        }
+                                      >
+                                        {e.kits} kits
+                                      </span>
                                     </div>
                                   ))}
                                 </div>
@@ -712,23 +997,64 @@ export default function CamposPanel({ user }: { user: User }) {
                     )}
 
                     {/* Tab: Siembra individual */}
-                    {tabDetalle === 'individual' && (
+                    {tabDetalle === "individual" && (
                       <>
                         <div className="siembra-nav">
                           <div className="periodo-btns">
-                            {(['dia', 'semana', 'mes'] as PeriodoSiembra[]).map(p => (
-                              <button key={p} className={`periodo-btn ${periodoSiembra === p ? 'on' : ''}`} onClick={() => setPeriodoSiembra(p)}>
-                                {p === 'dia' ? 'Día' : p === 'semana' ? 'Semana' : 'Mes'}
-                              </button>
-                            ))}
+                            {(["dia", "semana", "mes"] as PeriodoSiembra[]).map(
+                              (p) => (
+                                <button
+                                  key={p}
+                                  className={`periodo-btn ${periodoSiembra === p ? "on" : ""}`}
+                                  onClick={() => setPeriodoSiembra(p)}
+                                >
+                                  {p === "dia"
+                                    ? "Día"
+                                    : p === "semana"
+                                      ? "Semana"
+                                      : "Mes"}
+                                </button>
+                              ),
+                            )}
                           </div>
                           <div className="nav-fecha">
                             <button className="nav-arrow" onClick={navAnterior}>
-                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 2L3.5 6l4 4" stroke="#0D1F45" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M7.5 2L3.5 6l4 4"
+                                  stroke="#0D1F45"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
                             </button>
-                            <span className="nav-fecha-label">{getLabelNav()}</span>
-                            <button className="nav-arrow" onClick={navSiguiente}>
-                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2l4 4-4 4" stroke="#0D1F45" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            <span className="nav-fecha-label">
+                              {getLabelNav()}
+                            </span>
+                            <button
+                              className="nav-arrow"
+                              onClick={navSiguiente}
+                            >
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M4.5 2l4 4-4 4"
+                                  stroke="#0D1F45"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
                             </button>
                           </div>
                         </div>
@@ -736,11 +1062,18 @@ export default function CamposPanel({ user }: { user: User }) {
                           <select
                             className="field-select-sm"
                             value={colportorFiltro}
-                            onChange={e => setColportorFiltro(e.target.value)}
+                            onChange={(e) => setColportorFiltro(e.target.value)}
                           >
-                            <option value="">— Selecciona un colportor —</option>
-                            {colportoresUnicos.map(e => (
-                              <option key={e.colportor_id} value={e.colportor_id}>{e.colportores.nombre}</option>
+                            <option value="">
+                              — Selecciona un colportor —
+                            </option>
+                            {colportoresUnicos.map((e) => (
+                              <option
+                                key={e.colportor_id}
+                                value={e.colportor_id}
+                              >
+                                {e.colportores.nombre}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -748,35 +1081,78 @@ export default function CamposPanel({ user }: { user: User }) {
                           {!colportorFiltro ? (
                             <div className="empty-detalle">
                               <div className="empty-icon">👆</div>
-                              <div>Selecciona un colportor para ver su siembra</div>
+                              <div>
+                                Selecciona un colportor para ver su siembra
+                              </div>
                             </div>
                           ) : loadingSiembra ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#8A9CC0', fontSize: 13 }}>Cargando...</div>
+                            <div
+                              style={{
+                                textAlign: "center",
+                                padding: "2rem",
+                                color: "#8A9CC0",
+                                fontSize: 13,
+                              }}
+                            >
+                              Cargando...
+                            </div>
                           ) : (
                             <>
                               <div className="siembra-total-card">
                                 <div>
-                                  <div className="siembra-total-label">Total individual</div>
-                                  <div className="siembra-total-sub">{getLabelNav()}</div>
+                                  <div className="siembra-total-label">
+                                    Total individual
+                                  </div>
+                                  <div className="siembra-total-sub">
+                                    {getLabelNav()}
+                                  </div>
                                 </div>
                                 <div>
-                                  <div className="siembra-total-num">{totalKitsIndividual}</div>
-                                  <div style={{ fontSize: 11, color: '#B8760A', textAlign: 'right' }}>kits</div>
+                                  <div className="siembra-total-num">
+                                    {totalKitsIndividual}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#B8760A",
+                                      textAlign: "right",
+                                    }}
+                                  >
+                                    kits
+                                  </div>
                                 </div>
                               </div>
-                              {Object.keys(siembraIndividualPorFecha).length === 0 ? (
+                              {Object.keys(siembraIndividualPorFecha).length ===
+                              0 ? (
                                 <div className="empty-detalle">
                                   <div className="empty-icon">🌱</div>
-                                  <div>Sin registros de siembra en este período</div>
+                                  <div>
+                                    Sin registros de siembra en este período
+                                  </div>
                                 </div>
                               ) : (
-                                <div style={{ background: '#fff', border: '1.5px solid #E4E8F0', borderRadius: 10, overflow: 'hidden' }}>
+                                <div
+                                  style={{
+                                    background: "#fff",
+                                    border: "1.5px solid #E4E8F0",
+                                    borderRadius: 10,
+                                    overflow: "hidden",
+                                  }}
+                                >
                                   {Object.entries(siembraIndividualPorFecha)
                                     .sort(([a], [b]) => a.localeCompare(b))
                                     .map(([fecha, kits]) => (
                                       <div key={fecha} className="siembra-row">
-                                        <span className="siembra-fecha">{formatFecha(fecha)}</span>
-                                        <span className={kits > 0 ? 'b-kits' : 'b-kits-zero'}>{kits} kits</span>
+                                        <span className="siembra-fecha">
+                                          {formatFecha(fecha)}
+                                        </span>
+                                        <span
+                                          className={
+                                            kits > 0 ? "b-kits" : "b-kits-zero"
+                                          }
+                                        >
+                                          {kits} kits
+                                        </span>
                                       </div>
                                     ))}
                                 </div>
@@ -797,33 +1173,78 @@ export default function CamposPanel({ user }: { user: User }) {
       {/* Modal nuevo campo */}
       {modalCampo && (
         <div className="overlay" onClick={() => setModalCampo(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <span className="modal-title">Nuevo Campo</span>
-              <button className="modal-close" onClick={() => setModalCampo(false)}>×</button>
+              <button
+                className="modal-close"
+                onClick={() => setModalCampo(false)}
+              >
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <div>
                 <label className="field-label">Ciudad o municipio</label>
-                <input className="field-input" value={formCampo.ciudad} onChange={e => setFormCampo({ ...formCampo, ciudad: e.target.value })} placeholder="Ej: Montería" />
+                <input
+                  className="field-input"
+                  value={formCampo.ciudad}
+                  onChange={(e) =>
+                    setFormCampo({ ...formCampo, ciudad: e.target.value })
+                  }
+                  placeholder="Ej: Montería"
+                />
               </div>
               <div>
                 <label className="field-label">Departamento o estado</label>
-                <input className="field-input" value={formCampo.departamento} onChange={e => setFormCampo({ ...formCampo, departamento: e.target.value })} placeholder="Ej: Córdoba" />
+                <input
+                  className="field-input"
+                  value={formCampo.departamento}
+                  onChange={(e) =>
+                    setFormCampo({ ...formCampo, departamento: e.target.value })
+                  }
+                  placeholder="Ej: Córdoba"
+                />
               </div>
               <div>
                 <label className="field-label">País</label>
-                <input className="field-input" value={formCampo.pais} onChange={e => setFormCampo({ ...formCampo, pais: e.target.value })} placeholder="Ej: Colombia" />
+                <input
+                  className="field-input"
+                  value={formCampo.pais}
+                  onChange={(e) =>
+                    setFormCampo({ ...formCampo, pais: e.target.value })
+                  }
+                  placeholder="Ej: Colombia"
+                />
               </div>
               <div>
                 <label className="field-label">Fecha de inicio</label>
-                <input className="field-input" type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} />
+                <input
+                  className="field-input"
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                />
               </div>
             </div>
             <div className="modal-foot">
-              <button className="btn-cancel" onClick={() => setModalCampo(false)}>Cancelar</button>
-              <button className="btn-save" onClick={handleCrearCampo} disabled={savingCampo || !formCampo.ciudad || !formCampo.pais || !fechaInicio}>
-                {savingCampo ? 'Creando...' : 'Crear campo'}
+              <button
+                className="btn-cancel"
+                onClick={() => setModalCampo(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-save"
+                onClick={handleCrearCampo}
+                disabled={
+                  savingCampo ||
+                  !formCampo.ciudad ||
+                  !formCampo.pais ||
+                  !fechaInicio
+                }
+              >
+                {savingCampo ? "Creando..." : "Crear campo"}
               </button>
             </div>
           </div>
@@ -832,41 +1253,94 @@ export default function CamposPanel({ user }: { user: User }) {
 
       {/* Modal agregar colportor */}
       {modalAgregar && (
-        <div className="overlay" onClick={() => { setModalAgregar(false); setConflicto(null); }}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div
+          className="overlay"
+          onClick={() => {
+            setModalAgregar(false);
+            setConflicto(null);
+          }}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <span className="modal-title">Agregar Colportor</span>
-              <button className="modal-close" onClick={() => { setModalAgregar(false); setConflicto(null); }}>×</button>
+              <button
+                className="modal-close"
+                onClick={() => {
+                  setModalAgregar(false);
+                  setConflicto(null);
+                }}
+              >
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <div>
                 <label className="field-label">Seleccionar colportor</label>
-                <select className="field-select" value={colportorSeleccionado}
-                  onChange={e => { setColportorSeleccionado(e.target.value); setConflicto(null); setPendienteTraslado(null); }}>
+                <select
+                  className="field-select"
+                  value={colportorSeleccionado}
+                  onChange={(e) => {
+                    setColportorSeleccionado(e.target.value);
+                    setConflicto(null);
+                    setPendienteTraslado(null);
+                  }}
+                >
                   <option value="">— Selecciona un colportor —</option>
-                  {colportoresDisponibles.map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre} · {c.tipo_documento} {c.numero_documento}</option>
+                  {colportoresDisponibles.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre} · {c.tipo_documento} {c.numero_documento}
+                    </option>
                   ))}
                 </select>
               </div>
               {conflicto && (
                 <div className="conflicto-box">
-                  <div className="conflicto-title">⚠️ Colportor en otro campo</div>
+                  <div className="conflicto-title">
+                    ⚠️ Colportor en otro campo
+                  </div>
                   <div className="conflicto-sub">
-                    <strong>{conflicto.nombre}</strong> está activo en <strong>{conflicto.campo}</strong>. ¿Deseas trasladarlo a este campo?
+                    <strong>{conflicto.nombre}</strong> está activo en{" "}
+                    <strong>{conflicto.campo}</strong>. ¿Deseas trasladarlo a
+                    este campo?
                   </div>
                   <div className="conflicto-btns">
-                    <button className="btn-traslado" onClick={() => ejecutarAgregar(pendienteTraslado!, true)}>Sí, trasladar</button>
-                    <button className="btn-cancelar-traslado" onClick={() => { setConflicto(null); setPendienteTraslado(null); setColportorSeleccionado(''); }}>Cancelar</button>
+                    <button
+                      className="btn-traslado"
+                      onClick={() => ejecutarAgregar(pendienteTraslado!, true)}
+                    >
+                      Sí, trasladar
+                    </button>
+                    <button
+                      className="btn-cancelar-traslado"
+                      onClick={() => {
+                        setConflicto(null);
+                        setPendienteTraslado(null);
+                        setColportorSeleccionado("");
+                      }}
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
               )}
             </div>
             {!conflicto && (
               <div className="modal-foot">
-                <button className="btn-cancel" onClick={() => { setModalAgregar(false); setConflicto(null); }}>Cancelar</button>
-                <button className="btn-save" onClick={handleAgregarColportor} disabled={savingColportor || !colportorSeleccionado}>
-                  {savingColportor ? 'Verificando...' : 'Agregar'}
+                <button
+                  className="btn-cancel"
+                  onClick={() => {
+                    setModalAgregar(false);
+                    setConflicto(null);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="btn-save"
+                  onClick={handleAgregarColportor}
+                  disabled={savingColportor || !colportorSeleccionado}
+                >
+                  {savingColportor ? "Verificando..." : "Agregar"}
                 </button>
               </div>
             )}
@@ -877,15 +1351,28 @@ export default function CamposPanel({ user }: { user: User }) {
       {/* Confirmar retiro */}
       {confirmarRetiro && (
         <div className="overlay" onClick={() => setConfirmarRetiro(null)}>
-          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-title">¿Retirar colportor?</div>
-            <div className="confirm-sub">Se registrará la fecha de retiro y el colportor quedará disponible para otro campo.</div>
+            <div className="confirm-sub">
+              Se registrará la fecha de retiro y el colportor quedará disponible
+              para otro campo.
+            </div>
             <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setConfirmarRetiro(null)}>Cancelar</button>
-              <button className="btn-danger" onClick={() => {
-                const reg = equipoCampo.find(e => e.id === confirmarRetiro)
-                if (reg) handleRetirarColportor(reg)
-              }}>Retirar</button>
+              <button
+                className="btn-cancel"
+                onClick={() => setConfirmarRetiro(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-danger"
+                onClick={() => {
+                  const reg = equipoCampo.find((e) => e.id === confirmarRetiro);
+                  if (reg) handleRetirarColportor(reg);
+                }}
+              >
+                Retirar
+              </button>
             </div>
           </div>
         </div>
@@ -894,12 +1381,25 @@ export default function CamposPanel({ user }: { user: User }) {
       {/* Confirmar cierre */}
       {confirmarCierre && (
         <div className="overlay" onClick={() => setConfirmarCierre(null)}>
-          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-title">¿Cerrar este campo?</div>
-            <div className="confirm-sub">Se registrará la fecha de cierre y todos los colportores activos serán retirados automáticamente.</div>
+            <div className="confirm-sub">
+              Se registrará la fecha de cierre y todos los colportores activos
+              serán retirados automáticamente.
+            </div>
             <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setConfirmarCierre(null)}>Cancelar</button>
-              <button className="btn-danger" onClick={() => handleCerrarCampo(confirmarCierre)}>Cerrar campo</button>
+              <button
+                className="btn-cancel"
+                onClick={() => setConfirmarCierre(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-danger"
+                onClick={() => handleCerrarCampo(confirmarCierre)}
+              >
+                Cerrar campo
+              </button>
             </div>
           </div>
         </div>
@@ -908,16 +1408,29 @@ export default function CamposPanel({ user }: { user: User }) {
       {/* Confirmar reactivar */}
       {confirmarReactivar && (
         <div className="overlay" onClick={() => setConfirmarReactivar(null)}>
-          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-title">¿Reactivar este campo?</div>
-            <div className="confirm-sub">La fecha de inicio se actualizará a hoy y la fecha de cierre será eliminada. El campo quedará activo nuevamente.</div>
+            <div className="confirm-sub">
+              La fecha de inicio se actualizará a hoy y la fecha de cierre será
+              eliminada. El campo quedará activo nuevamente.
+            </div>
             <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setConfirmarReactivar(null)}>Cancelar</button>
-              <button className="btn-success" onClick={() => handleReactivarCampo(confirmarReactivar)}>Reactivar</button>
+              <button
+                className="btn-cancel"
+                onClick={() => setConfirmarReactivar(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-success"
+                onClick={() => handleReactivarCampo(confirmarReactivar)}
+              >
+                Reactivar
+              </button>
             </div>
           </div>
         </div>
       )}
     </>
-  )
+  );
 }

@@ -1,149 +1,181 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+"use client";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-type User = { id: string; name: string; phone: string; role: string }
+type User = { id: string; name: string; phone: string; role: string };
 
 type Colportor = {
-  id: string
-  nombre: string
-  tipo_documento: 'RC' | 'TI' | 'CC' | 'CE'
-  numero_documento: string
-  telefono: string
-  fecha_nacimiento: string
-  tiene_pasaporte: boolean
-  localidad: string
-  ubicacion_actual: string | null
-  categoria: 'CDA INTEGRAL' | 'CEPEVISTA' | 'COLPORTOR' | 'PAC'
-}
+  id: string;
+  nombre: string;
+  tipo_documento: "RC" | "TI" | "CC" | "CE";
+  numero_documento: string;
+  telefono: string;
+  fecha_nacimiento: string;
+  tiene_pasaporte: boolean;
+  localidad: string;
+  ubicacion_actual: string | null;
+  categoria: "CDA INTEGRAL" | "CEPEVISTA" | "COLPORTOR" | "PAC";
+};
 
-type SiembraHoy = { colportor_id: string; kits_vendidos: number }
+type SiembraHoy = { colportor_id: string; kits_vendidos: number };
 
-const EMPTY: Omit<Colportor, 'id'> = {
-  nombre: '', tipo_documento: 'CC', numero_documento: '',
-  telefono: '', fecha_nacimiento: '', tiene_pasaporte: false,
-  localidad: '', ubicacion_actual: null, categoria: 'COLPORTOR'
-}
+const EMPTY: Omit<Colportor, "id"> = {
+  nombre: "",
+  tipo_documento: "CC",
+  numero_documento: "",
+  telefono: "",
+  fecha_nacimiento: "",
+  tiene_pasaporte: false,
+  localidad: "",
+  ubicacion_actual: null,
+  categoria: "COLPORTOR",
+};
 
-type FilterKey = 'total' | 'campo' | 'pasaporte' | 'kits'
+type FilterKey = "total" | "campo" | "pasaporte" | "kits";
 
 function calcularEdad(fecha: string): number {
-  if (!fecha) return 0
-  const hoy = new Date()
-  const nac = new Date(fecha)
-  let edad = hoy.getFullYear() - nac.getFullYear()
-  const m = hoy.getMonth() - nac.getMonth()
-  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--
-  return edad
+  if (!fecha) return 0;
+  const hoy = new Date();
+  const nac = new Date(fecha);
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
 }
 
 export default function ColportoresPanel({ user }: { user: User }) {
-  const [colportores, setColportores] = useState<Colportor[]>([])
-  const [siembraHoy, setSiembraHoy] = useState<SiembraHoy[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<FilterKey>('total')
-  const [search, setSearch] = useState('')
-  const [filtroCategoria, setFiltroCategoria] = useState('')
-  const [filtroLocalidad, setFiltroLocalidad] = useState('')
-  const [filtroUbicacion, setFiltroUbicacion] = useState('')
-  const [modal, setModal] = useState(false)
-  const [editing, setEditing] = useState<Colportor | null>(null)
-  const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [colportores, setColportores] = useState<Colportor[]>([]);
+  const [siembraHoy, setSiembraHoy] = useState<SiembraHoy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterKey>("total");
+  const [search, setSearch] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [filtroLocalidad, setFiltroLocalidad] = useState("");
+  const [filtroUbicacion, setFiltroUbicacion] = useState("");
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState<Colportor | null>(null);
+  const [form, setForm] = useState(EMPTY);
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toISOString().split("T")[0];
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
   async function fetchAll() {
-    setLoading(true)
+    setLoading(true);
     const [{ data: cols }, { data: siembra }] = await Promise.all([
-      supabase.from('colportores').select('*').order('nombre'),
-      supabase.from('siembra').select('colportor_id, kits_vendidos').eq('fecha', today)
-    ])
-    setColportores(cols || [])
-    setSiembraHoy(siembra || [])
-    setLoading(false)
+      supabase.from("colportores").select("*").order("nombre"),
+      supabase
+        .from("siembra")
+        .select("colportor_id, kits_vendidos")
+        .eq("fecha", today),
+    ]);
+    setColportores(cols || []);
+    setSiembraHoy(siembra || []);
+    setLoading(false);
   }
 
   function openCreate() {
-    setEditing(null)
-    setForm(EMPTY)
-    setModal(true)
+    setEditing(null);
+    setForm(EMPTY);
+    setModal(true);
   }
 
   function openEdit(c: Colportor) {
-    setEditing(c)
-    setForm({ ...c })
-    setModal(true)
+    setEditing(c);
+    setForm({ ...c });
+    setModal(true);
   }
 
   async function handleSave() {
-    setSaving(true)
+    setSaving(true);
     if (editing) {
-      await supabase.from('colportores').update(form).eq('id', editing.id)
+      await supabase.from("colportores").update(form).eq("id", editing.id);
     } else {
-      await supabase.from('colportores').insert(form)
+      await supabase.from("colportores").insert(form);
     }
-    setSaving(false)
-    setModal(false)
-    fetchAll()
+    setSaving(false);
+    setModal(false);
+    fetchAll();
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('colportores').delete().eq('id', id)
-    setDeleteConfirm(null)
-    fetchAll()
+    await supabase.from("colportores").delete().eq("id", id);
+    setDeleteConfirm(null);
+    fetchAll();
   }
 
-  const kitsMap = Object.fromEntries(siembraHoy.map(s => [s.colportor_id, s.kits_vendidos]))
-  const totalKits = siembraHoy.reduce((a, s) => a + s.kits_vendidos, 0)
+  const kitsMap = Object.fromEntries(
+    siembraHoy.map((s) => [s.colportor_id, s.kits_vendidos]),
+  );
+  const totalKits = siembraHoy.reduce((a, s) => a + s.kits_vendidos, 0);
 
   // Localidades y ubicaciones únicas para filtros
-  const localidades = [...new Set(colportores.map(c => c.localidad).filter(Boolean))]
-  const ubicaciones = [...new Set(colportores.map(c => c.ubicacion_actual).filter(Boolean))] as string[]
+  const localidades = [
+    ...new Set(colportores.map((c) => c.localidad).filter(Boolean)),
+  ];
+  const ubicaciones = [
+    ...new Set(colportores.map((c) => c.ubicacion_actual).filter(Boolean)),
+  ] as string[];
 
   // Filtrado por card + búsqueda + filtros de columna
   const filtered = colportores
-    .filter(c => {
-      if (filter === 'campo') return c.ubicacion_actual !== null
-      if (filter === 'pasaporte') return c.tiene_pasaporte
-      return true
+    .filter((c) => {
+      if (filter === "campo") return c.ubicacion_actual !== null;
+      if (filter === "pasaporte") return c.tiene_pasaporte;
+      return true;
     })
-    .filter(c => c.nombre.toLowerCase().includes(search.toLowerCase()))
-    .filter(c => filtroCategoria ? c.categoria === filtroCategoria : true)
-    .filter(c => filtroLocalidad ? c.localidad === filtroLocalidad : true)
-    .filter(c => filtroUbicacion ? c.ubicacion_actual === filtroUbicacion : true)
+    .filter((c) => c.nombre.toLowerCase().includes(search.toLowerCase()))
+    .filter((c) => (filtroCategoria ? c.categoria === filtroCategoria : true))
+    .filter((c) => (filtroLocalidad ? c.localidad === filtroLocalidad : true))
+    .filter((c) =>
+      filtroUbicacion ? c.ubicacion_actual === filtroUbicacion : true,
+    );
 
   const stats = {
     total: colportores.length,
-    campo: colportores.filter(c => c.ubicacion_actual).length,
-    pasaporte: colportores.filter(c => c.tiene_pasaporte).length,
-    kits: totalKits
-  }
+    campo: colportores.filter((c) => c.ubicacion_actual).length,
+    pasaporte: colportores.filter((c) => c.tiene_pasaporte).length,
+    kits: totalKits,
+  };
 
   const filterLabels: Record<FilterKey, string> = {
-    total: 'Todos los colportores',
-    campo: 'Colportores en campo',
-    pasaporte: 'Colportores con pasaporte',
-    kits: 'Siembra del día'
-  }
+    total: "Todos los colportores",
+    campo: "Colportores en campo",
+    pasaporte: "Colportores con pasaporte",
+    kits: "Siembra del día",
+  };
 
   const actionBtns = (c: Colportor) => (
     <div className="act-btns">
       <button className="act-btn" onClick={() => openEdit(c)} title="Editar">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z" stroke="#8A9CC0" strokeWidth="1.2"/>
+          <path
+            d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z"
+            stroke="#8A9CC0"
+            strokeWidth="1.2"
+          />
         </svg>
       </button>
-      <button className="act-btn danger" onClick={() => setDeleteConfirm(c.id)} title="Eliminar">
+      <button
+        className="act-btn danger"
+        onClick={() => setDeleteConfirm(c.id)}
+        title="Eliminar"
+      >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M2 3h8M4 3V2h4v1M3 3l.5 7h5l.5-7" stroke="#8A9CC0" strokeWidth="1.2" strokeLinecap="round"/>
+          <path
+            d="M2 3h8M4 3V2h4v1M3 3l.5 7h5l.5-7"
+            stroke="#8A9CC0"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
         </svg>
       </button>
     </div>
-  )
+  );
 
   return (
     <>
@@ -244,26 +276,63 @@ export default function ColportoresPanel({ user }: { user: User }) {
         <div className="cp-topbar">
           <div>
             <div className="cp-topbar-title">Colportores</div>
-            <div className="cp-topbar-sub">{filtered.length} {filterLabels[filter].toLowerCase()}</div>
+            <div className="cp-topbar-sub">
+              {filtered.length} {filterLabels[filter].toLowerCase()}
+            </div>
           </div>
-          <button className="cp-add-btn" onClick={openCreate}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v12M1 7h12" stroke="#0D1F45" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            Nuevo Colportor
-          </button>
+
+          {/* Solo si es admin se muestra el botón de agregar */}
+          {user?.role === "admin" && (
+            <button className="cp-add-btn" onClick={openCreate}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M7 1v12M1 7h12"
+                  stroke="#0D1F45"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Nuevo Colportor
+            </button>
+          )}
         </div>
 
         <div className="cp-content">
           {/* Stats cards */}
           <div className="cp-stats">
-            {([
-              { key: 'total',     label: 'Total',         num: stats.total,     sub: 'Colportores' },
-              { key: 'campo',     label: 'En campo',      num: stats.campo,     sub: 'Activos hoy' },
-              { key: 'pasaporte', label: 'Con pasaporte', num: stats.pasaporte, sub: 'Habilitados' },
-              { key: 'kits',      label: 'Kits hoy',      num: stats.kits,      sub: 'Siembra diaria' },
-            ] as const).map(s => (
-              <div key={s.key} className={`cp-stat ${filter === s.key ? 'sel' : ''}`} onClick={() => setFilter(s.key)}>
+            {(
+              [
+                {
+                  key: "total",
+                  label: "Total",
+                  num: stats.total,
+                  sub: "Colportores",
+                },
+                {
+                  key: "campo",
+                  label: "En campo",
+                  num: stats.campo,
+                  sub: "Activos hoy",
+                },
+                {
+                  key: "pasaporte",
+                  label: "Con pasaporte",
+                  num: stats.pasaporte,
+                  sub: "Habilitados",
+                },
+                {
+                  key: "kits",
+                  label: "Kits hoy",
+                  num: stats.kits,
+                  sub: "Siembra diaria",
+                },
+              ] as const
+            ).map((s) => (
+              <div
+                key={s.key}
+                className={`cp-stat ${filter === s.key ? "sel" : ""}`}
+                onClick={() => setFilter(s.key)}
+              >
                 <div className="cp-stat-label">{s.label}</div>
                 <div className="cp-stat-num">{s.num}</div>
                 <div className="cp-stat-sub">{s.sub}</div>
@@ -276,26 +345,66 @@ export default function ColportoresPanel({ user }: { user: User }) {
             <div className="cp-search-wrap">
               <span className="cp-search-icon">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <circle cx="6" cy="6" r="4.5" stroke="#8A9CC0" strokeWidth="1.4"/>
-                  <path d="M10 10l2.5 2.5" stroke="#8A9CC0" strokeWidth="1.4" strokeLinecap="round"/>
+                  <circle
+                    cx="6"
+                    cy="6"
+                    r="4.5"
+                    stroke="#8A9CC0"
+                    strokeWidth="1.4"
+                  />
+                  <path
+                    d="M10 10l2.5 2.5"
+                    stroke="#8A9CC0"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </span>
-              <input className="cp-search" placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} />
+              <input
+                className="cp-search"
+                placeholder="Buscar por nombre..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
-            <select className="cp-filter-select" value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}>
+            <select
+              className="cp-filter-select"
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+            >
               <option value="">Todas las categorías</option>
-              {['CDA INTEGRAL', 'CEPEVISTA', 'COLPORTOR', 'PAC'].map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+              {["CDA INTEGRAL", "CEPEVISTA", "COLPORTOR", "PAC"].map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
               ))}
             </select>
-            <select className="cp-filter-select" value={filtroLocalidad} onChange={e => setFiltroLocalidad(e.target.value)}>
+            <select
+              className="cp-filter-select"
+              value={filtroLocalidad}
+              onChange={(e) => setFiltroLocalidad(e.target.value)}
+            >
               <option value="">Todas las localidades</option>
-              {localidades.map(l => <option key={l} value={l}>{l}</option>)}
+              {localidades.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
             </select>
-            {(filter === 'total' || filter === 'campo' || filter === 'kits') && (
-              <select className="cp-filter-select" value={filtroUbicacion} onChange={e => setFiltroUbicacion(e.target.value)}>
+            {(filter === "total" ||
+              filter === "campo" ||
+              filter === "kits") && (
+              <select
+                className="cp-filter-select"
+                value={filtroUbicacion}
+                onChange={(e) => setFiltroUbicacion(e.target.value)}
+              >
                 <option value="">Todas las ubicaciones</option>
-                {ubicaciones.map(u => <option key={u} value={u}>{u}</option>)}
+                {ubicaciones.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
               </select>
             )}
           </div>
@@ -307,62 +416,176 @@ export default function ColportoresPanel({ user }: { user: User }) {
             <div className="empty">Cargando...</div>
           ) : (
             <div className="cp-table">
-              {filter === 'kits' ? (
+              {filter === "kits" ? (
                 <>
-                  <div className="cp-thead" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 70px' }}>
-                    {['Nombre / Edad', 'Documento', 'Categoría', 'Ubicación actual', 'Kits hoy', ''].map(h => <span key={h} className="cp-th">{h}</span>)}
+                  <div
+                    className="cp-thead"
+                    style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 70px" }}
+                  >
+                    {[
+                      "Nombre / Edad",
+                      "Documento",
+                      "Categoría",
+                      "Ubicación actual",
+                      "Kits hoy",
+                      "",
+                    ].map((h) => (
+                      <span key={h} className="cp-th">
+                        {h}
+                      </span>
+                    ))}
                   </div>
-                  {filtered.length === 0 ? <div className="empty">Sin registros</div> : filtered.map(c => (
-                    <div key={c.id} className="cp-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 70px' }}>
-                      <div className="nombre-cell">
-                        <span className="cp-td">{c.nombre}</span>
-                        <span className="nombre-edad">{calcularEdad(c.fecha_nacimiento)} años</span>
+                  {filtered.length === 0 ? (
+                    <div className="empty">Sin registros</div>
+                  ) : (
+                    filtered.map((c) => (
+                      <div
+                        key={c.id}
+                        className="cp-row"
+                        style={{
+                          gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 70px",
+                        }}
+                      >
+                        <div className="nombre-cell">
+                          <span className="cp-td">{c.nombre}</span>
+                          <span className="nombre-edad">
+                            {calcularEdad(c.fecha_nacimiento)} años
+                          </span>
+                        </div>
+                        <span className="cp-td-m">
+                          {c.tipo_documento} · {c.numero_documento}
+                        </span>
+                        <span>
+                          <span className="b-cat">{c.categoria}</span>
+                        </span>
+                        <span>
+                          {c.ubicacion_actual ? (
+                            <span className="b-active">
+                              {c.ubicacion_actual}
+                            </span>
+                          ) : (
+                            <span className="b-none">Sin asignar</span>
+                          )}
+                        </span>
+                        <span>
+                          {(kitsMap[c.id] ?? 0) > 0 ? (
+                            <span className="b-kits">{kitsMap[c.id]} kits</span>
+                          ) : (
+                            <span className="b-none">0 kits</span>
+                          )}
+                        </span>
+                        {actionBtns(c)}
                       </div>
-                      <span className="cp-td-m">{c.tipo_documento} · {c.numero_documento}</span>
-                      <span><span className="b-cat">{c.categoria}</span></span>
-                      <span>{c.ubicacion_actual ? <span className="b-active">{c.ubicacion_actual}</span> : <span className="b-none">Sin asignar</span>}</span>
-                      <span>{(kitsMap[c.id] ?? 0) > 0 ? <span className="b-kits">{kitsMap[c.id]} kits</span> : <span className="b-none">0 kits</span>}</span>
-                      {actionBtns(c)}
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </>
-              ) : filter === 'pasaporte' ? (
+              ) : filter === "pasaporte" ? (
                 <>
-                  <div className="cp-thead" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 70px' }}>
-                    {['Nombre / Edad', 'Documento', 'Categoría', 'Localidad', 'Pasaporte', ''].map(h => <span key={h} className="cp-th">{h}</span>)}
+                  <div
+                    className="cp-thead"
+                    style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 70px" }}
+                  >
+                    {[
+                      "Nombre / Edad",
+                      "Documento",
+                      "Categoría",
+                      "Localidad",
+                      "Pasaporte",
+                      "",
+                    ].map((h) => (
+                      <span key={h} className="cp-th">
+                        {h}
+                      </span>
+                    ))}
                   </div>
-                  {filtered.length === 0 ? <div className="empty">Sin registros</div> : filtered.map(c => (
-                    <div key={c.id} className="cp-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 70px' }}>
-                      <div className="nombre-cell">
-                        <span className="cp-td">{c.nombre}</span>
-                        <span className="nombre-edad">{calcularEdad(c.fecha_nacimiento)} años</span>
+                  {filtered.length === 0 ? (
+                    <div className="empty">Sin registros</div>
+                  ) : (
+                    filtered.map((c) => (
+                      <div
+                        key={c.id}
+                        className="cp-row"
+                        style={{
+                          gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 70px",
+                        }}
+                      >
+                        <div className="nombre-cell">
+                          <span className="cp-td">{c.nombre}</span>
+                          <span className="nombre-edad">
+                            {calcularEdad(c.fecha_nacimiento)} años
+                          </span>
+                        </div>
+                        <span className="cp-td-m">
+                          {c.tipo_documento} · {c.numero_documento}
+                        </span>
+                        <span>
+                          <span className="b-cat">{c.categoria}</span>
+                        </span>
+                        <span className="cp-td-m">{c.localidad}</span>
+                        <span>
+                          <span className="b-pass">Sí</span>
+                        </span>
+                        {actionBtns(c)}
                       </div>
-                      <span className="cp-td-m">{c.tipo_documento} · {c.numero_documento}</span>
-                      <span><span className="b-cat">{c.categoria}</span></span>
-                      <span className="cp-td-m">{c.localidad}</span>
-                      <span><span className="b-pass">Sí</span></span>
-                      {actionBtns(c)}
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </>
               ) : (
                 <>
-                  <div className="cp-thead" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 70px' }}>
-                    {['Nombre / Edad', 'Documento', 'Equipo', 'Localidad', 'Ubicación actual', ''].map(h => <span key={h} className="cp-th">{h}</span>)}
+                  <div
+                    className="cp-thead"
+                    style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 70px" }}
+                  >
+                    {[
+                      "Nombre / Edad",
+                      "Documento",
+                      "Equipo",
+                      "Localidad",
+                      "Ubicación actual",
+                      "",
+                    ].map((h) => (
+                      <span key={h} className="cp-th">
+                        {h}
+                      </span>
+                    ))}
                   </div>
-                  {filtered.length === 0 ? <div className="empty">Sin registros</div> : filtered.map(c => (
-                    <div key={c.id} className="cp-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 70px' }}>
-                      <div className="nombre-cell">
-                        <span className="cp-td">{c.nombre}</span>
-                        <span className="nombre-edad">{calcularEdad(c.fecha_nacimiento)} años</span>
+                  {filtered.length === 0 ? (
+                    <div className="empty">Sin registros</div>
+                  ) : (
+                    filtered.map((c) => (
+                      <div
+                        key={c.id}
+                        className="cp-row"
+                        style={{
+                          gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 70px",
+                        }}
+                      >
+                        <div className="nombre-cell">
+                          <span className="cp-td">{c.nombre}</span>
+                          <span className="nombre-edad">
+                            {calcularEdad(c.fecha_nacimiento)} años
+                          </span>
+                        </div>
+                        <span className="cp-td-m">
+                          {c.tipo_documento} · {c.numero_documento}
+                        </span>
+                        <span>
+                          <span className="b-cat">{c.categoria}</span>
+                        </span>
+                        <span className="cp-td-m">{c.localidad}</span>
+                        <span>
+                          {c.ubicacion_actual ? (
+                            <span className="b-active">
+                              {c.ubicacion_actual}
+                            </span>
+                          ) : (
+                            <span className="b-none">CEPEV</span>
+                          )}
+                        </span>
+                        {user?.role === 'admin' && actionBtns(c)}
                       </div>
-                      <span className="cp-td-m">{c.tipo_documento} · {c.numero_documento}</span>
-                      <span><span className="b-cat">{c.categoria}</span></span>
-                      <span className="cp-td-m">{c.localidad}</span>
-                      <span>{c.ubicacion_actual ? <span className="b-active">{c.ubicacion_actual}</span> : <span className="b-none">Sin asignar</span>}</span>
-                      {actionBtns(c)}
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </>
               )}
             </div>
@@ -373,19 +596,34 @@ export default function ColportoresPanel({ user }: { user: User }) {
       {/* Modal crear/editar */}
       {modal && (
         <div className="overlay" onClick={() => setModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <span className="modal-title">{editing ? 'Editar Colportor' : 'Nuevo Colportor'}</span>
-              <button className="modal-close" onClick={() => setModal(false)}>×</button>
+              <span className="modal-title">
+                {editing ? "Editar Colportor" : "Nuevo Colportor"}
+              </span>
+              <button className="modal-close" onClick={() => setModal(false)}>
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <div className="full">
                 <label className="field-label">Nombre completo</label>
-                <input className="field-input" value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} placeholder="Nombre completo" />
+                <input
+                  className="field-input"
+                  value={form.nombre}
+                  onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                  placeholder="Nombre completo"
+                />
               </div>
               <div>
                 <label className="field-label">Tipo de documento</label>
-                <select className="field-select" value={form.tipo_documento} onChange={e => setForm({ ...form, tipo_documento: e.target.value as any })}>
+                <select
+                  className="field-select"
+                  value={form.tipo_documento}
+                  onChange={(e) =>
+                    setForm({ ...form, tipo_documento: e.target.value as any })
+                  }
+                >
                   <option value="RC">Registro Civil</option>
                   <option value="TI">Tarjeta de Identidad</option>
                   <option value="CC">Cédula de Ciudadanía</option>
@@ -394,22 +632,52 @@ export default function ColportoresPanel({ user }: { user: User }) {
               </div>
               <div>
                 <label className="field-label">Número de documento</label>
-                <input className="field-input" value={form.numero_documento} onChange={e => setForm({ ...form, numero_documento: e.target.value })} placeholder="Número" />
+                <input
+                  className="field-input"
+                  value={form.numero_documento}
+                  onChange={(e) =>
+                    setForm({ ...form, numero_documento: e.target.value })
+                  }
+                  placeholder="Número"
+                />
               </div>
               <div>
                 <label className="field-label">Fecha de nacimiento</label>
-                <input className="field-input" type="date" value={form.fecha_nacimiento} onChange={e => setForm({ ...form, fecha_nacimiento: e.target.value })} />
+                <input
+                  className="field-input"
+                  type="date"
+                  value={form.fecha_nacimiento}
+                  onChange={(e) =>
+                    setForm({ ...form, fecha_nacimiento: e.target.value })
+                  }
+                />
                 {form.fecha_nacimiento && (
-                  <div className="edad-preview">Edad calculada: <span>{calcularEdad(form.fecha_nacimiento)} años</span></div>
+                  <div className="edad-preview">
+                    Edad calculada:{" "}
+                    <span>{calcularEdad(form.fecha_nacimiento)} años</span>
+                  </div>
                 )}
               </div>
               <div>
                 <label className="field-label">Teléfono</label>
-                <input className="field-input" value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="Teléfono" />
+                <input
+                  className="field-input"
+                  value={form.telefono}
+                  onChange={(e) =>
+                    setForm({ ...form, telefono: e.target.value })
+                  }
+                  placeholder="Teléfono"
+                />
               </div>
               <div>
                 <label className="field-label">Equipo</label>
-                <select className="field-select" value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value as any })}>
+                <select
+                  className="field-select"
+                  value={form.categoria}
+                  onChange={(e) =>
+                    setForm({ ...form, categoria: e.target.value as any })
+                  }
+                >
                   <option value="CDA INTEGRAL">CDA INTEGRAL</option>
                   <option value="CEPEVISTA">CEPEVISTA</option>
                   <option value="COLPORTOR">COLPORTOR</option>
@@ -418,23 +686,42 @@ export default function ColportoresPanel({ user }: { user: User }) {
               </div>
               <div>
                 <label className="field-label">Localidad de origen</label>
-                <input className="field-input" value={form.localidad} onChange={e => setForm({ ...form, localidad: e.target.value })} placeholder="Ciudad de origen" />
-              </div>
-              <div>
-                <label className="field-label">Ubicación actual</label>
-                <input className="field-input" value={form.ubicacion_actual ?? ''} onChange={e => setForm({ ...form, ubicacion_actual: e.target.value || null })} placeholder="Vacío si no está en campo" />
+                <input
+                  className="field-input"
+                  value={form.localidad}
+                  onChange={(e) =>
+                    setForm({ ...form, localidad: e.target.value })
+                  }
+                  placeholder="Ciudad de origen"
+                />
               </div>
               <div className="full">
                 <label className="field-label">Pasaporte</label>
                 <label className="checkbox-row">
-                  <input type="checkbox" checked={form.tiene_pasaporte} onChange={e => setForm({ ...form, tiene_pasaporte: e.target.checked })} />
-                  <span className="checkbox-label">Tiene pasaporte vigente</span>
+                  <input
+                    type="checkbox"
+                    checked={form.tiene_pasaporte}
+                    onChange={(e) =>
+                      setForm({ ...form, tiene_pasaporte: e.target.checked })
+                    }
+                  />
+                  <span className="checkbox-label">
+                    Tiene pasaporte vigente
+                  </span>
                 </label>
               </div>
             </div>
             <div className="modal-foot">
-              <button className="btn-cancel" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn-save" onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+              <button className="btn-cancel" onClick={() => setModal(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn-save"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Guardando..." : "Guardar"}
+              </button>
             </div>
           </div>
         </div>
@@ -443,16 +730,29 @@ export default function ColportoresPanel({ user }: { user: User }) {
       {/* Confirmar eliminación */}
       {deleteConfirm && (
         <div className="overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-title">¿Eliminar?</div>
-            <div className="confirm-sub">Esta acción no se puede deshacer. Se eliminarán todos los registros asociados.</div>
+            <div className="confirm-sub">
+              Esta acción no se puede deshacer. Se eliminarán todos los
+              registros asociados.
+            </div>
             <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setDeleteConfirm(null)}>Cancelar</button>
-              <button className="btn-delete" onClick={() => handleDelete(deleteConfirm)}>Eliminar</button>
+              <button
+                className="btn-cancel"
+                onClick={() => setDeleteConfirm(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-delete"
+                onClick={() => handleDelete(deleteConfirm)}
+              >
+                Eliminar
+              </button>
             </div>
           </div>
         </div>
       )}
     </>
-  )
+  );
 }

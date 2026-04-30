@@ -1,156 +1,180 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+"use client";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-type User = { id: string; name: string; phone: string; role: string }
+type User = { id: string; name: string; phone: string; role: string };
 
 type Colportor = {
-  id: string
-  nombre: string
-  tipo_documento: string
-  numero_documento: string
-  categoria: string
-  ubicacion_actual: string | null
-}
+  id: string;
+  nombre: string;
+  tipo_documento: string;
+  numero_documento: string;
+  categoria: string;
+  ubicacion_actual: string | null;
+};
 
 type SiembraRegistro = {
-  id: string
-  colportor_id: string
-  fecha: string
-  kits_vendidos: number
-  seguidores_ivpt: number
-}
+  id: string;
+  colportor_id: string;
+  fecha: string;
+  kits_vendidos: number;
+  seguidores_ivpt: number;
+};
 
 export default function SiembraPanel({ user }: { user: User }) {
-  const [colportores, setColportores] = useState<Colportor[]>([])
-  const [siembra, setSiembra] = useState<SiembraRegistro[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
-  const [modal, setModal] = useState(false)
-  const [editando, setEditando] = useState<Colportor | null>(null)
-  const [form, setForm] = useState<{ kits_vendidos: string; seguidores_ivpt: string }>({
-    kits_vendidos: '',
-    seguidores_ivpt: ''
-  })
-  const [saving, setSaving] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [modalEnlace, setModalEnlace] = useState(false)
-  const [enlaceFecha, setEnlaceFecha] = useState(new Date().toISOString().split('T')[0])
-  const [enlaceExpiracion, setEnlaceExpiracion] = useState('6')
-  const [enlaceGenerado, setEnlaceGenerado] = useState('')
-  const [generandoEnlace, setGenerandoEnlace] = useState(false)
-  const [copiado, setCopiado] = useState(false)
+  const [colportores, setColportores] = useState<Colportor[]>([]);
+  const [siembra, setSiembra] = useState<SiembraRegistro[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
+  const [modal, setModal] = useState(false);
+  const [editando, setEditando] = useState<Colportor | null>(null);
+  const [form, setForm] = useState<{
+    kits_vendidos: string;
+    seguidores_ivpt: string;
+  }>({
+    kits_vendidos: "",
+    seguidores_ivpt: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [modalEnlace, setModalEnlace] = useState(false);
+  const [enlaceFecha, setEnlaceFecha] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [enlaceExpiracion, setEnlaceExpiracion] = useState("6");
+  const [enlaceGenerado, setEnlaceGenerado] = useState("");
+  const [generandoEnlace, setGenerandoEnlace] = useState(false);
+  const [copiado, setCopiado] = useState(false);
 
-  useEffect(() => { fetchAll() }, [])
-  useEffect(() => { fetchSiembra() }, [fecha])
+  useEffect(() => {
+    fetchAll();
+  }, []);
+  useEffect(() => {
+    fetchSiembra();
+  }, [fecha]);
 
   async function fetchAll() {
-    setLoading(true)
+    setLoading(true);
     const [{ data: cols }, { data: siem }] = await Promise.all([
-      supabase.from('colportores').select('id, nombre, tipo_documento, numero_documento, categoria, ubicacion_actual').order('nombre'),
-      supabase.from('siembra').select('id, colportor_id, fecha, kits_vendidos, seguidores_ivpt').eq('fecha', fecha)
-    ])
-    setColportores(cols || [])
-    setSiembra(siem || [])
-    setLoading(false)
+      supabase
+        .from("colportores")
+        .select(
+          "id, nombre, tipo_documento, numero_documento, categoria, ubicacion_actual",
+        )
+        .order("nombre"),
+      supabase
+        .from("siembra")
+        .select("id, colportor_id, fecha, kits_vendidos, seguidores_ivpt")
+        .eq("fecha", fecha),
+    ]);
+    setColportores(cols || []);
+    setSiembra(siem || []);
+    setLoading(false);
   }
 
   async function fetchSiembra() {
     const { data } = await supabase
-      .from('siembra')
-      .select('id, colportor_id, fecha, kits_vendidos, seguidores_ivpt')
-      .eq('fecha', fecha)
-    setSiembra(data || [])
+      .from("siembra")
+      .select("id, colportor_id, fecha, kits_vendidos, seguidores_ivpt")
+      .eq("fecha", fecha);
+    setSiembra(data || []);
   }
 
   function getRegistro(colportorId: string) {
-    return siembra.find(s => s.colportor_id === colportorId) || null
+    return siembra.find((s) => s.colportor_id === colportorId) || null;
   }
 
   function openModal(c: Colportor) {
-    const reg = getRegistro(c.id)
-    setEditando(c)
+    const reg = getRegistro(c.id);
+    setEditando(c);
     setForm({
-      kits_vendidos: reg?.kits_vendidos ? String(reg.kits_vendidos) : '',
-      seguidores_ivpt: reg?.seguidores_ivpt ? String(reg.seguidores_ivpt) : ''
-    })
-    setModal(true)
+      kits_vendidos: reg?.kits_vendidos ? String(reg.kits_vendidos) : "",
+      seguidores_ivpt: reg?.seguidores_ivpt ? String(reg.seguidores_ivpt) : "",
+    });
+    setModal(true);
   }
 
   async function handleSave() {
-    if (!editando) return
-    setSaving(true)
-    const reg = getRegistro(editando.id)
+    if (!editando) return;
+    setSaving(true);
+    const reg = getRegistro(editando.id);
 
     const { data: campoActivo } = await supabase
-      .from('campo_colportores')
-      .select('campo_id')
-      .eq('colportor_id', editando.id)
-      .eq('estado', 'activo')
-      .maybeSingle()
+      .from("campo_colportores")
+      .select("campo_id")
+      .eq("colportor_id", editando.id)
+      .eq("estado", "activo")
+      .maybeSingle();
 
     if (reg) {
-      await supabase.from('siembra').update({
-        kits_vendidos: parseInt(form.kits_vendidos) || 0,
-        seguidores_ivpt: parseInt(form.seguidores_ivpt) || 0
-      }).eq('id', reg.id)
+      await supabase
+        .from("siembra")
+        .update({
+          kits_vendidos: parseInt(form.kits_vendidos) || 0,
+          seguidores_ivpt: parseInt(form.seguidores_ivpt) || 0,
+        })
+        .eq("id", reg.id);
     } else {
-      await supabase.from('siembra').insert({
+      await supabase.from("siembra").insert({
         colportor_id: editando.id,
         campo_id: campoActivo?.campo_id || null,
         fecha,
         kits_vendidos: parseInt(form.kits_vendidos) || 0,
-        seguidores_ivpt: parseInt(form.seguidores_ivpt) || 0
-      })
+        seguidores_ivpt: parseInt(form.seguidores_ivpt) || 0,
+      });
     }
-    setSaving(false)
-    setModal(false)
-    fetchSiembra()
+    setSaving(false);
+    setModal(false);
+    fetchSiembra();
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('siembra').delete().eq('id', id)
-    setDeleteConfirm(null)
-    fetchSiembra()
+    await supabase.from("siembra").delete().eq("id", id);
+    setDeleteConfirm(null);
+    fetchSiembra();
   }
 
   async function handleGenerarEnlace() {
-    setGenerandoEnlace(true)
-    const token = Math.random().toString(36).substring(2) + Date.now().toString(36)
-    const expira = new Date()
-    expira.setHours(expira.getHours() + parseInt(enlaceExpiracion))
-  
-    await supabase.from('enlaces_siembra').insert({
+    setGenerandoEnlace(true);
+    const token =
+      Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const expira = new Date();
+    expira.setHours(expira.getHours() + parseInt(enlaceExpiracion));
+
+    await supabase.from("enlaces_siembra").insert({
       token,
       fecha: enlaceFecha,
       expira_at: expira.toISOString(),
-      creado_por: user.id
-    })
-  
-    const url = `${window.location.origin}/siembra/${token}`
-    setEnlaceGenerado(url)
-    setGenerandoEnlace(false)
+      creado_por: user.id,
+    });
+
+    const url = `${window.location.origin}/siembra/${token}`;
+    setEnlaceGenerado(url);
+    setGenerandoEnlace(false);
   }
-  
+
   async function copiarEnlace() {
-    await navigator.clipboard.writeText(enlaceGenerado)
-    setCopiado(true)
-    setTimeout(() => setCopiado(false), 2000)
+    await navigator.clipboard.writeText(enlaceGenerado);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
   }
 
-  const filtered = colportores.filter(c =>
-    c.nombre.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = colportores.filter((c) =>
+    c.nombre.toLowerCase().includes(search.toLowerCase()),
+  );
 
-  const totalKits = siembra.reduce((a, s) => a + s.kits_vendidos, 0)
-  const totalIVPT = siembra.reduce((a, s) => a + s.seguidores_ivpt, 0)
-  const totalRegistros = siembra.length
+  const totalKits = siembra.reduce((a, s) => a + s.kits_vendidos, 0);
+  const totalIVPT = siembra.reduce((a, s) => a + s.seguidores_ivpt, 0);
+  const totalRegistros = siembra.length;
 
   function formatFecha(f: string) {
-    return new Date(f + 'T00:00:00').toLocaleDateString('es-CO', {
-      weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
-    })
+    return new Date(f + "T00:00:00").toLocaleDateString("es-CO", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
   }
 
   return (
@@ -271,15 +295,28 @@ export default function SiembraPanel({ user }: { user: User }) {
               className="sw-fecha-input"
               type="date"
               value={fecha}
-              onChange={e => setFecha(e.target.value)}
+              onChange={(e) => setFecha(e.target.value)}
             />
           </div>
-          <button className="sw-btn-enlace" onClick={() => { setModalEnlace(true); setEnlaceGenerado(''); }}>
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-    <path d="M5.5 8.5l3-3M7 3l1.5-1.5a2.121 2.121 0 013 3L10 6M4 8l-1.5 1.5a2.121 2.121 0 003 3L7 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-  Generar enlace
-</button>
+          {user?.role === "admin" && (
+            <button
+              className="sw-btn-enlace"
+              onClick={() => {
+                setModalEnlace(true);
+                setEnlaceGenerado("");
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M5.5 8.5l3-3M7 3l1.5-1.5a2.121 2.121 0 013 3L10 6M4 8l-1.5 1.5a2.121 2.121 0 003 3L7 11"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Generar enlace
+            </button>
+          )}
         </div>
 
         <div className="sw-content">
@@ -287,7 +324,9 @@ export default function SiembraPanel({ user }: { user: User }) {
             <div className="sw-stat">
               <div className="sw-stat-label">Registros del día</div>
               <div className="sw-stat-num">{totalRegistros}</div>
-              <div className="sw-stat-sub">de {colportores.length} colportores</div>
+              <div className="sw-stat-sub">
+                de {colportores.length} colportores
+              </div>
             </div>
             <div className="sw-stat gold">
               <div className="sw-stat-label">Kits sembrados</div>
@@ -304,15 +343,26 @@ export default function SiembraPanel({ user }: { user: User }) {
           <div className="sw-search-wrap">
             <span className="sw-search-icon">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <circle cx="6" cy="6" r="4.5" stroke="#8A9CC0" strokeWidth="1.4"/>
-                <path d="M10 10l2.5 2.5" stroke="#8A9CC0" strokeWidth="1.4" strokeLinecap="round"/>
+                <circle
+                  cx="6"
+                  cy="6"
+                  r="4.5"
+                  stroke="#8A9CC0"
+                  strokeWidth="1.4"
+                />
+                <path
+                  d="M10 10l2.5 2.5"
+                  stroke="#8A9CC0"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
               </svg>
             </span>
             <input
               className="sw-search"
               placeholder="Buscar colportor por nombre..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
@@ -321,69 +371,119 @@ export default function SiembraPanel({ user }: { user: User }) {
           ) : (
             <div className="sw-table">
               <div className="sw-thead">
-                {['Colportor', 'Ubicación', 'Kits', 'Seg. IVPT', ''].map(h => (
-                  <span key={h} className="sw-th">{h}</span>
-                ))}
+                {["Colportor", "Ubicación", "Kits", "Seg. IVPT", ""].map(
+                  (h) => (
+                    <span key={h} className="sw-th">
+                      {h}
+                    </span>
+                  ),
+                )}
               </div>
               {filtered.length === 0 ? (
                 <div className="empty">Sin resultados</div>
-              ) : filtered.map(c => {
-                const reg = getRegistro(c.id)
-                return (
-                  <div key={c.id} className="sw-row">
-                    <div>
-                      <div className="sw-nombre">{c.nombre}</div>
-                      <div className="sw-doc">{c.tipo_documento} · {c.numero_documento}</div>
-                    </div>
-                    <div>
-                      {c.ubicacion_actual
-                        ? <span className="b-ubicacion">{c.ubicacion_actual}</span>
-                        : <span className="b-sin-campo">Sin campo</span>
-                      }
-                    </div>
-                    <div>
-                      {reg
-                        ? <span className="b-kits">{reg.kits_vendidos} kits</span>
-                        : <span className="b-sin-reg">—</span>
-                      }
-                    </div>
-                    <div>
-                      {reg
-                        ? <span className="b-ivpt">{reg.seguidores_ivpt} seg</span>
-                        : <span className="b-sin-reg">—</span>
-                      }
-                    </div>
-                    <div className="sw-act-btns">
-                      <button
-                        className="sw-act-btn primary"
-                        onClick={() => openModal(c)}
-                        title={reg ? 'Editar registro' : 'Registrar siembra'}
-                      >
-                        {reg ? (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z" stroke="#fff" strokeWidth="1.2"/>
-                          </svg>
+              ) : (
+                filtered.map((c) => {
+                  const reg = getRegistro(c.id);
+                  return (
+                    <div key={c.id} className="sw-row">
+                      <div>
+                        <div className="sw-nombre">{c.nombre}</div>
+                        <div className="sw-doc">
+                          {c.tipo_documento} · {c.numero_documento}
+                        </div>
+                      </div>
+                      <div>
+                        {c.ubicacion_actual ? (
+                          <span className="b-ubicacion">
+                            {c.ubicacion_actual}
+                          </span>
                         ) : (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M6 1v10M1 6h10" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/>
-                          </svg>
+                          <span className="b-sin-campo">Sin campo</span>
                         )}
-                      </button>
-                      {reg && (
-                        <button
-                          className="sw-act-btn danger"
-                          onClick={() => setDeleteConfirm(reg.id)}
-                          title="Eliminar registro"
-                        >
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 3h8M4 3V2h4v1M3 3l.5 7h5l.5-7" stroke="#8A9CC0" strokeWidth="1.2" strokeLinecap="round"/>
-                          </svg>
-                        </button>
-                      )}
+                      </div>
+                      <div>
+                        {reg ? (
+                          <span className="b-kits">
+                            {reg.kits_vendidos} kits
+                          </span>
+                        ) : (
+                          <span className="b-sin-reg">—</span>
+                        )}
+                      </div>
+                      <div>
+                        {reg ? (
+                          <span className="b-ivpt">
+                            {reg.seguidores_ivpt} seg
+                          </span>
+                        ) : (
+                          <span className="b-sin-reg">—</span>
+                        )}
+                      </div>
+                      <div className="sw-act-btns">
+                        {user?.role === "admin" && (
+                          <button
+                            className="sw-act-btn primary"
+                            onClick={() => openModal(c)}
+                            title={
+                              reg ? "Editar registro" : "Registrar siembra"
+                            }
+                          >
+                            {reg ? (
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z"
+                                  stroke="#fff"
+                                  strokeWidth="1.2"
+                                />
+                              </svg>
+                            ) : (
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M6 1v10M1 6h10"
+                                  stroke="#fff"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                        {reg && (
+                          <button
+                            className="sw-act-btn danger"
+                            onClick={() => setDeleteConfirm(reg.id)}
+                            title="Eliminar registro"
+                          >
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 12 12"
+                              fill="none"
+                            >
+                              <path
+                                d="M2 3h8M4 3V2h4v1M3 3l.5 7h5l.5-7"
+                                stroke="#8A9CC0"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  );
+                })
+              )}
             </div>
           )}
         </div>
@@ -392,17 +492,24 @@ export default function SiembraPanel({ user }: { user: User }) {
       {/* Modal registrar/editar */}
       {modal && editando && (
         <div className="overlay" onClick={() => setModal(false)}>
-          <div className="sw-modal" onClick={e => e.stopPropagation()}>
+          <div className="sw-modal" onClick={(e) => e.stopPropagation()}>
             <div className="sw-modal-head">
               <div>
                 <div className="sw-modal-title">
-                  {getRegistro(editando.id) ? 'Editar registro' : 'Registrar siembra'}
+                  {getRegistro(editando.id)
+                    ? "Editar registro"
+                    : "Registrar siembra"}
                 </div>
                 <div className="sw-modal-sub">
                   {editando.nombre} · {formatFecha(fecha)}
                 </div>
               </div>
-              <button className="sw-modal-close" onClick={() => setModal(false)}>×</button>
+              <button
+                className="sw-modal-close"
+                onClick={() => setModal(false)}
+              >
+                ×
+              </button>
             </div>
             <div className="sw-modal-body">
               <div>
@@ -410,48 +517,104 @@ export default function SiembraPanel({ user }: { user: User }) {
                 <div className="sw-num-input-wrap">
                   <button
                     className="sw-num-btn"
-                    onClick={() => setForm(f => ({ ...f, kits_vendidos: String(Math.max(0, parseInt(f.kits_vendidos) || 0) - 1) }))}
-                  >−</button>
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        kits_vendidos: String(
+                          Math.max(0, parseInt(f.kits_vendidos) || 0) - 1,
+                        ),
+                      }))
+                    }
+                  >
+                    −
+                  </button>
                   <input
                     className="sw-num-input"
                     type="text"
                     placeholder="0"
                     value={form.kits_vendidos}
-                    onChange={e => setForm(f => ({ ...f, kits_vendidos: e.target.value.replace(/[^0-9]/g, '') }))}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        kits_vendidos: e.target.value.replace(/[^0-9]/g, ""),
+                      }))
+                    }
                   />
                   <button
                     className="sw-num-btn"
-                    onClick={() => setForm(f => ({ ...f, kits_vendidos: String((parseInt(f.kits_vendidos) || 0) + 1) }))}
-                  >+</button>
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        kits_vendidos: String(
+                          (parseInt(f.kits_vendidos) || 0) + 1,
+                        ),
+                      }))
+                    }
+                  >
+                    +
+                  </button>
                 </div>
-                <div className="sw-field-desc">Número de kits de libros sembrados en el día</div>
+                <div className="sw-field-desc">
+                  Número de kits de libros sembrados en el día
+                </div>
               </div>
               <div>
                 <label className="sw-field-label">Seguidores IVPT</label>
                 <div className="sw-num-input-wrap">
                   <button
                     className="sw-num-btn"
-                    onClick={() => setForm(f => ({ ...f, seguidores_ivpt: String(Math.max(0, parseInt(f.seguidores_ivpt) || 0) - 1) }))}
-                  >−</button>
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        seguidores_ivpt: String(
+                          Math.max(0, parseInt(f.seguidores_ivpt) || 0) - 1,
+                        ),
+                      }))
+                    }
+                  >
+                    −
+                  </button>
                   <input
                     className="sw-num-input"
                     type="text"
                     placeholder="0"
                     value={form.seguidores_ivpt}
-                    onChange={e => setForm(f => ({ ...f, seguidores_ivpt: e.target.value.replace(/[^0-9]/g, '') }))}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        seguidores_ivpt: e.target.value.replace(/[^0-9]/g, ""),
+                      }))
+                    }
                   />
                   <button
                     className="sw-num-btn"
-                    onClick={() => setForm(f => ({ ...f, seguidores_ivpt: String((parseInt(f.seguidores_ivpt) || 0) + 1) }))}
-                  >+</button>
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        seguidores_ivpt: String(
+                          (parseInt(f.seguidores_ivpt) || 0) + 1,
+                        ),
+                      }))
+                    }
+                  >
+                    +
+                  </button>
                 </div>
-                <div className="sw-field-desc">Personas que siguieron la página de Instagram del IVPT</div>
+                <div className="sw-field-desc">
+                  Personas que siguieron la página de Instagram del IVPT
+                </div>
               </div>
             </div>
             <div className="sw-modal-foot">
-              <button className="sw-btn-cancel" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="sw-btn-save" onClick={handleSave} disabled={saving}>
-                {saving ? 'Guardando...' : 'Guardar'}
+              <button className="sw-btn-cancel" onClick={() => setModal(false)}>
+                Cancelar
+              </button>
+              <button
+                className="sw-btn-save"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Guardando..." : "Guardar"}
               </button>
             </div>
           </div>
@@ -459,87 +622,120 @@ export default function SiembraPanel({ user }: { user: User }) {
       )}
 
       {/* Modal generar enlace */}
-{modalEnlace && (
-  <div className="overlay" onClick={() => setModalEnlace(false)}>
-    <div className="sw-modal" onClick={e => e.stopPropagation()}>
-      <div className="sw-modal-head">
-        <div>
-          <div className="sw-modal-title">Generar enlace de siembra</div>
-          <div className="sw-modal-sub">Los colportores registrarán con su número de documento</div>
-        </div>
-        <button className="sw-modal-close" onClick={() => setModalEnlace(false)}>×</button>
-      </div>
-      <div className="sw-modal-body">
-        <div>
-          <label className="sw-field-label">Fecha asignada a los registros</label>
-          <input
-            className="sw-fecha-input"
-            style={{ width: '100%', boxSizing: 'border-box' }}
-            type="date"
-            value={enlaceFecha}
-            onChange={e => setEnlaceFecha(e.target.value)}
-          />
-          <div className="sw-field-desc">Los registros que hagan los colportores se guardarán en esta fecha</div>
-        </div>
-        <div>
-          <label className="sw-field-label">El enlace expira en</label>
-          <div className="expiracion-grid">
-            {[
-              { val: '1', label: '1 hora' },
-              { val: '6', label: '6 horas' },
-              { val: '12', label: '12 horas' },
-              { val: '24', label: '24 horas' },
-            ].map(op => (
+      {modalEnlace && (
+        <div className="overlay" onClick={() => setModalEnlace(false)}>
+          <div className="sw-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="sw-modal-head">
+              <div>
+                <div className="sw-modal-title">Generar enlace de siembra</div>
+                <div className="sw-modal-sub">
+                  Los colportores registrarán con su número de documento
+                </div>
+              </div>
               <button
-                key={op.val}
-                className={`exp-btn ${enlaceExpiracion === op.val ? 'on' : ''}`}
-                onClick={() => setEnlaceExpiracion(op.val)}
+                className="sw-modal-close"
+                onClick={() => setModalEnlace(false)}
               >
-                {op.label}
+                ×
               </button>
-            ))}
-          </div>
-        </div>
-
-        {enlaceGenerado && (
-          <div>
-            <label className="sw-field-label">Enlace generado</label>
-            <div className={`enlace-box enlace-ok`}>{enlaceGenerado}</div>
-            <button className={`btn-copiar ${copiado ? 'copiado' : ''}`} onClick={copiarEnlace}>
-              {copiado ? '✓ Copiado' : 'Copiar enlace'}
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="sw-modal-foot">
-        <button className="sw-btn-cancel" onClick={() => setModalEnlace(false)}>Cerrar</button>
-        {!enlaceGenerado && (
-          <button className="sw-btn-save" onClick={handleGenerarEnlace} disabled={generandoEnlace}>
-            {generandoEnlace ? 'Generando...' : 'Generar enlace'}
-          </button>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-
-      {/* Confirmar eliminar */}
-      {deleteConfirm && (
-        <div className="overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="confirm-title">¿Eliminar registro?</div>
-            <div className="confirm-sub">
-              Se eliminará el registro de siembra de este colportor para el día {formatFecha(fecha)}.
             </div>
-            <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setDeleteConfirm(null)}>Cancelar</button>
-              <button className="btn-danger" onClick={() => handleDelete(deleteConfirm)}>Eliminar</button>
+            <div className="sw-modal-body">
+              <div>
+                <label className="sw-field-label">
+                  Fecha asignada a los registros
+                </label>
+                <input
+                  className="sw-fecha-input"
+                  style={{ width: "100%", boxSizing: "border-box" }}
+                  type="date"
+                  value={enlaceFecha}
+                  onChange={(e) => setEnlaceFecha(e.target.value)}
+                />
+                <div className="sw-field-desc">
+                  Los registros que hagan los colportores se guardarán en esta
+                  fecha
+                </div>
+              </div>
+              <div>
+                <label className="sw-field-label">El enlace expira en</label>
+                <div className="expiracion-grid">
+                  {[
+                    { val: "1", label: "1 hora" },
+                    { val: "6", label: "6 horas" },
+                    { val: "12", label: "12 horas" },
+                    { val: "24", label: "24 horas" },
+                  ].map((op) => (
+                    <button
+                      key={op.val}
+                      className={`exp-btn ${enlaceExpiracion === op.val ? "on" : ""}`}
+                      onClick={() => setEnlaceExpiracion(op.val)}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {enlaceGenerado && (
+                <div>
+                  <label className="sw-field-label">Enlace generado</label>
+                  <div className={`enlace-box enlace-ok`}>{enlaceGenerado}</div>
+                  <button
+                    className={`btn-copiar ${copiado ? "copiado" : ""}`}
+                    onClick={copiarEnlace}
+                  >
+                    {copiado ? "✓ Copiado" : "Copiar enlace"}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="sw-modal-foot">
+              <button
+                className="sw-btn-cancel"
+                onClick={() => setModalEnlace(false)}
+              >
+                Cerrar
+              </button>
+              {!enlaceGenerado && (
+                <button
+                  className="sw-btn-save"
+                  onClick={handleGenerarEnlace}
+                  disabled={generandoEnlace}
+                >
+                  {generandoEnlace ? "Generando..." : "Generar enlace"}
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-
+      {/* Confirmar eliminar */}
+      {deleteConfirm && (
+        <div className="overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-title">¿Eliminar registro?</div>
+            <div className="confirm-sub">
+              Se eliminará el registro de siembra de este colportor para el día{" "}
+              {formatFecha(fecha)}.
+            </div>
+            <div className="confirm-btns">
+              <button
+                className="btn-cancel"
+                onClick={() => setDeleteConfirm(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-danger"
+                onClick={() => handleDelete(deleteConfirm)}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
-  )
+  );
 }

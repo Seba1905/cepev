@@ -139,7 +139,6 @@ export default function SiembraPublica() {
         .sp-gold-bar { height: 4px; background: #F5A623; }
         .sp-head { padding: 1.8rem 1.8rem 1.2rem; }
         .sp-logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 1.4rem; }
-        .sp-logo-icon { width: 38px; height: 38px; border-radius: 10px; background: #0D1F45; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .sp-logo-name { font-family: 'Sora', sans-serif; font-size: 20px; font-weight: 800; color: #0D1F45; }
         .sp-logo-name span { color: #F5A623; }
         .sp-title { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 700; color: #0D1F45; margin-bottom: 4px; }
@@ -191,12 +190,17 @@ export default function SiembraPublica() {
           <div className="sp-gold-bar" />
 
           <div className="sp-head">
-            <div className="sp-logo-row">
-              <div className="sp-logo-icon">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                  <path d="M11 2L11 20M4 11L18 11" stroke="#F5A623" strokeWidth="2.5" strokeLinecap="round"/>
-                  <circle cx="11" cy="11" r="5" stroke="#F5A623" strokeWidth="1.5"/>
-                </svg>
+            <div className="sp-logo-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="sp-logo-icon" style={{ flexShrink: 0 }}>
+              <img 
+        src="/logos/logo.png" 
+        alt="Logo" 
+        style={{ 
+          width: '55px',    /* Logo más grande como pediste */
+          height: 'auto', 
+          display: 'block' 
+        }} 
+      />
               </div>
               <div className="sp-logo-name">CEP<span>EV</span></div>
             </div>
@@ -234,7 +238,7 @@ export default function SiembraPublica() {
                 <div className="sp-icon-big">🌱</div>
                 <div className="sp-msg-title">¡Registro exitoso!</div>
                 <div className="sp-msg-sub">
-                  Tu siembra del día {enlace && formatFecha(enlace.fecha)} ha sido registrada correctamente. ¡Sigue sembrando!
+                  Tu siembra del día {enlace && formatFecha(enlace.fecha)} ha sido registrada correctamente.
                 </div>
               </div>
             )}
@@ -264,7 +268,7 @@ export default function SiembraPublica() {
           {estado === 'formulario' && colportor && (
             <div className="sp-body">
               <div className="sp-bienvenido">
-                <div className="sp-bienvenido-nombre">👋 Hola, {colportor.nombre.split(' ')[0]}</div>
+                <div className="sp-bienvenido-nombre">Bienvenido(a)</div>
                 <div className="sp-bienvenido-sub">{colportor.nombre}</div>
               </div>
 
