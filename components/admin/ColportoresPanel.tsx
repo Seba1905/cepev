@@ -284,11 +284,17 @@ export default function ColportoresPanel({ user }: { user: User }) {
         .confirm-btns { display: flex; gap: 10px; justify-content: center; }
         .btn-delete { padding: 9px 20px; border: none; border-radius: 9px; background: #DC2626; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; }
 
+        /* Zebra stripes */
+        .cp-row:nth-child(even) { background: #F7F9FD; }
+        .cp-row:nth-child(even):hover { background: #F0F4FC; }
+
         @media (max-width: 768px) {
           .cp-stats { grid-template-columns: repeat(2, 1fr); }
           .modal-body { grid-template-columns: 1fr; }
-          .cp-content { padding: 1rem; }
+          .cp-content { padding: 0.75rem; }
           .cp-filters { flex-direction: column; }
+          .cp-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .cp-table { min-width: 620px; }
         }
       `}</style>
 
@@ -436,7 +442,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
           {loading ? (
             <div className="empty">Cargando...</div>
           ) : (
-            <div className="cp-table">
+            <div className="cp-table-scroll"><div className="cp-table">
               {filter === "kits" ? (
                 <>
                   <div
@@ -609,7 +615,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
                   )}
                 </>
               )}
-            </div>
+            </div></div>
           )}
         </div>
       </div>

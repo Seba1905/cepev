@@ -277,12 +277,16 @@ export default function SiembraPanel({ user }: { user: User }) {
         .btn-cancel { padding: 9px 18px; border: 1.5px solid #E4E8F0; border-radius: 9px; background: #F7F9FD; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; color: #4A6080; cursor: pointer; }
         .btn-danger { padding: 9px 20px; border: none; border-radius: 9px; background: #DC2626; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; }
 
+        /* Zebra stripes */
+        .sw-row:nth-child(even) { background: #F7F9FD; }
+        .sw-row:nth-child(even):hover { background: #F0F4FC; }
+
         @media (max-width: 768px) {
           .sw-stats { grid-template-columns: repeat(2, 1fr); }
-          .sw-thead { grid-template-columns: 2fr 1fr 1fr 80px; }
-          .sw-row { grid-template-columns: 2fr 1fr 1fr 80px; }
-          .sw-content { padding: 1rem; }
+          .sw-content { padding: 0.75rem; }
           .sw-topbar { flex-direction: column; align-items: flex-start; }
+          .sw-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .sw-table { min-width: 520px; }
         }
       `}</style>
 
@@ -372,7 +376,7 @@ export default function SiembraPanel({ user }: { user: User }) {
           {loading ? (
             <div className="empty">Cargando...</div>
           ) : (
-            <div className="sw-table">
+            <div className="sw-table-scroll"><div className="sw-table">
               <div className="sw-thead">
                 {["Colportor", "Ubicación", "Kits", "Seg. IVPT", ""].map(
                   (h) => (
@@ -483,7 +487,7 @@ export default function SiembraPanel({ user }: { user: User }) {
                   );
                 })
               )}
-            </div>
+            </div></div>
           )}
         </div>
       </div>
