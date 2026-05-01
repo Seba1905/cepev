@@ -87,16 +87,15 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
   const drawHeaderFooter = (pageNum: number, totalPages: number) => {
     // Marca de agua con opacidad nativa de jsPDF, respetando proporción original
     if (logo) {
-      try {
-        const size = 70 // tamaño base en mm
-        const imgW = logoAspect >= 1 ? size : size * logoAspect
-        const imgH = logoAspect >= 1 ? size / logoAspect : size
-        const gState = (doc as any).GState({ opacity: 0.10 })
-        doc.setGState(gState)
-        doc.addImage(logo, 'PNG', W / 2 - imgW / 2, H / 2 - imgH / 2, imgW, imgH)
-        doc.setGState((doc as any).GState({ opacity: 1 }))
-      } catch (e) {}
-    }
+  try {
+    const size = 70
+    const imgW = logoAspect >= 1 ? size * logoAspect : size
+    const imgH = logoAspect >= 1 ? size / logoAspect : size
+    ;(doc as any).setGState((doc as any).GState({ opacity: 0.10 }))
+    doc.addImage(logo, 'PNG', W / 2 - imgW / 2, H / 2 - imgH / 2, imgW, imgH)
+    ;(doc as any).setGState((doc as any).GState({ opacity: 1 }))
+  } catch (e) {}
+}
 
     // --- Tu código de Header azul y Dorado (Sin cambios) ---
     doc.setFillColor(13, 31, 69);
