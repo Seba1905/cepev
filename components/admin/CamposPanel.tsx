@@ -7,6 +7,7 @@ type User = { id: string; name: string; phone: string; role: string };
 type Campo = {
   id: string;
   ciudad: string;
+  departamento: string | null;
   pais: string;
   fecha_inicio: string;
   fecha_fin: string | null;
@@ -216,12 +217,10 @@ export default function CamposPanel({ user }: { user: User }) {
   async function handleCrearCampo() {
     if (!formCampo.ciudad || !formCampo.pais || !fechaInicio) return;
     setSavingCampo(true);
-    const paisCompleto = formCampo.departamento
-      ? `${formCampo.departamento}, ${formCampo.pais}`
-      : formCampo.pais;
     await supabase.from("campos").insert({
       ciudad: formCampo.ciudad,
-      pais: paisCompleto,
+      departamento: formCampo.departamento || null,
+      pais: formCampo.pais,
       fecha_inicio: fechaInicio,
       estado: "activo",
     });
@@ -611,7 +610,9 @@ export default function CamposPanel({ user }: { user: User }) {
                         <div className="campo-nombre">
                           Campo en {campo.ciudad}
                         </div>
-                        <div className="campo-pais">{campo.pais}</div>
+                        <div className="campo-pais">
+                          {[campo.departamento, campo.pais].filter(Boolean).join(", ")}
+                        </div>
                       </div>
                       <span
                         className={
@@ -651,7 +652,7 @@ export default function CamposPanel({ user }: { user: User }) {
                           Campo en {vistaDetalle.ciudad}
                         </div>
                         <div className="detalle-sub">
-                          {vistaDetalle.pais} · Desde{" "}
+                          {[vistaDetalle.departamento, vistaDetalle.pais].filter(Boolean).join(", ")} · Desde{" "}
                           {formatFecha(vistaDetalle.fecha_inicio)}
                           {vistaDetalle.fecha_fin &&
                             ` · Hasta ${formatFecha(vistaDetalle.fecha_fin)}`}

@@ -262,7 +262,7 @@ export default function SiembraPublica() {
             )}
             {estado === "enviado" && (
               <div className="sp-center">
-                <div className="sp-icon-big">🌱</div>
+                <div className="sp-icon-big">✅</div>
                 <div className="sp-msg-title">¡Registro exitoso!</div>
                 <div className="sp-msg-sub">
                   Tu siembra del día {enlace && formatFecha(enlace.fecha)} ha
