@@ -167,6 +167,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       headStyles: { fillColor: [13, 31, 69], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [247, 249, 253] },
       columnStyles: { 0: { cellWidth: 42 }, 6: { cellWidth: 24 } },
+      margin: { top: 34 },
     })
 
     addFooter()
@@ -194,7 +195,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
 
       if (!equipo?.length) continue
 
-      if (currentY > 220) { doc.addPage(); currentY = 34 }
+      if (currentY > 220) { doc.addPage(); currentY = 36 }
 
       doc.setFontSize(10)
       doc.setFont('helvetica', 'bold')
@@ -218,6 +219,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
         styles: { fontSize: 8, cellPadding: 3 },
         headStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [247, 249, 253] },
+        margin: { top: 34 },
       })
 
       currentY = (doc as any).lastAutoTable.finalY + 14
@@ -257,6 +259,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: { fillColor: [13, 31, 69], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [247, 249, 253] },
+      margin: { top: 34 },
     })
 
     addFooter()
@@ -308,6 +311,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       alternateRowStyles: { fillColor: [247, 249, 253] },
       foot: [['', '', '', 'TOTAL', totalKits, totalIVPT]],
       footStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
+      margin: { top: 34 },
     })
 
     addFooter()
@@ -343,6 +347,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       columnStyles: { 0: { halign: 'center', cellWidth: 12 }, 3: { halign: 'center' } },
       foot: [['', '', 'TOTAL', totalIVPT]],
       footStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
+      margin: { top: 34 },
     })
 
     addFooter()
@@ -394,6 +399,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       headStyles: { fillColor: [13, 31, 69], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [247, 249, 253] },
       columnStyles: { 1: { halign: 'center', fontStyle: 'bold' } },
+      margin: { top: 34 },
     })
 
     y = (doc as any).lastAutoTable.finalY + 12
@@ -415,6 +421,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       headStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [247, 249, 253] },
       columnStyles: { 1: { halign: 'center' }, 2: { halign: 'center' } },
+      margin: { top: 34 },
     })
 
     addFooter()
@@ -452,6 +459,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: { fillColor: [13, 31, 69], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [247, 249, 253] },
+      margin: { top: 34 },
     })
 
     addFooter()
@@ -483,6 +491,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: { fillColor: [13, 31, 69], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [247, 249, 253] },
+      margin: { top: 34 },
     })
 
     addFooter()
@@ -531,6 +540,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       },
       foot: [['', '', 'TOTAL', rows.reduce((a, r) => a + r.kits, 0)]],
       footStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
+      margin: { top: 34 },
     })
 
     addFooter()

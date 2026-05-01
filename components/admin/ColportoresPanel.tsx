@@ -73,7 +73,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
         .select("colportor_id, kits_vendidos")
         .eq("fecha", today),
     ]);
-    setColportores(cols || []);
+    setColportores((cols || []).map((c) => ({ ...c, ubicacion_actual: c.ubicacion_actual ?? "CEPEV" })));
     setSiembraHoy(siembra || []);
     setLoading(false);
   }
@@ -95,7 +95,8 @@ export default function ColportoresPanel({ user }: { user: User }) {
     if (editing) {
       await supabase.from("colportores").update(form).eq("id", editing.id);
     } else {
-      await supabase.from("colportores").insert(form);
+      const ubicacion_actual = form.categoria === "PAC" ? "PAC" : "CEPEV";
+      await supabase.from("colportores").insert({ ...form, ubicacion_actual });
     }
     setSaving(false);
     setModal(false);
@@ -113,31 +114,51 @@ export default function ColportoresPanel({ user }: { user: User }) {
   );
   const totalKits = siembraHoy.reduce((a, s) => a + s.kits_vendidos, 0);
 
-  // Localidades y ubicaciones únicas para filtros
+  // Normaliza texto: minúsculas sin tildes
+  function normalize(s: string) {
+    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  // Localidades y ubicaciones únicas para filtros (sin duplicados por tilde/mayúscula, ordenadas)
   const localidades = [
-    ...new Set(colportores.map((c) => c.localidad).filter(Boolean)),
-  ];
+    ...new Map(
+      colportores
+        .map((c) => c.localidad)
+        .filter(Boolean)
+        .map((v) => [normalize(v), v] as [string, string])
+    ).values(),
+  ].sort((a, b) => normalize(a).localeCompare(normalize(b)));
+
   const ubicaciones = [
-    ...new Set(colportores.map((c) => c.ubicacion_actual).filter(Boolean)),
-  ] as string[];
+    ...new Map(
+      colportores
+        .map((c) => c.ubicacion_actual)
+        .filter(Boolean)
+        .map((v) => [normalize(v!), v!] as [string, string])
+    ).values(),
+  ].sort((a, b) => normalize(a).localeCompare(normalize(b)));
 
   // Filtrado por card + búsqueda + filtros de columna
   const filtered = colportores
     .filter((c) => {
-      if (filter === "campo") return c.ubicacion_actual !== null;
+      if (filter === "campo") return !!c.ubicacion_actual && normalize(c.ubicacion_actual) !== "cepev" && normalize(c.ubicacion_actual) !== "pac";
       if (filter === "pasaporte") return c.tiene_pasaporte;
       return true;
     })
-    .filter((c) => c.nombre.toLowerCase().includes(search.toLowerCase()))
+    .filter((c) => normalize(c.nombre).includes(normalize(search)))
     .filter((c) => (filtroCategoria ? c.categoria === filtroCategoria : true))
-    .filter((c) => (filtroLocalidad ? c.localidad === filtroLocalidad : true))
+    .filter((c) => (filtroLocalidad ? normalize(c.localidad) === normalize(filtroLocalidad) : true))
     .filter((c) =>
-      filtroUbicacion ? c.ubicacion_actual === filtroUbicacion : true,
+      filtroUbicacion ? (
+        normalize(filtroUbicacion) === "cepev"
+          ? (c.ubicacion_actual === null || normalize(c.ubicacion_actual) === "cepev")
+          : normalize(c.ubicacion_actual ?? "") === normalize(filtroUbicacion)
+      ) : true,
     );
 
   const stats = {
     total: colportores.length,
-    campo: colportores.filter((c) => c.ubicacion_actual).length,
+    campo: colportores.filter((c) => c.ubicacion_actual && normalize(c.ubicacion_actual) !== "cepev" && normalize(c.ubicacion_actual) !== "pac").length,
     pasaporte: colportores.filter((c) => c.tiene_pasaporte).length,
     kits: totalKits,
   };
@@ -695,6 +716,19 @@ export default function ColportoresPanel({ user }: { user: User }) {
                   placeholder="Ciudad de origen"
                 />
               </div>
+              {editing && (
+                <div className="full">
+                  <label className="field-label">Ubicación actual</label>
+                  <input
+                    className="field-input"
+                    value={form.ubicacion_actual ?? ""}
+                    onChange={(e) =>
+                      setForm({ ...form, ubicacion_actual: e.target.value || null })
+                    }
+                    placeholder="Ej: Barranquilla, Sincelejo..."
+                  />
+                </div>
+              )}
               <div className="full">
                 <label className="field-label">Pasaporte</label>
                 <label className="checkbox-row">

@@ -68,7 +68,10 @@ export default function SiembraPanel({ user }: { user: User }) {
         .select("id, colportor_id, fecha, kits_vendidos, seguidores_ivpt")
         .eq("fecha", fecha),
     ]);
-    setColportores(cols || []);
+    setColportores((cols || []).map((c) => ({
+      ...c,
+      ubicacion_actual: c.ubicacion_actual ?? (c.categoria === "PAC" ? "PAC" : "CEPEV"),
+    })));
     setSiembra(siem || []);
     setLoading(false);
   }
@@ -393,13 +396,9 @@ export default function SiembraPanel({ user }: { user: User }) {
                         </div>
                       </div>
                       <div>
-                        {c.ubicacion_actual ? (
-                          <span className="b-ubicacion">
-                            {c.ubicacion_actual}
-                          </span>
-                        ) : (
-                          <span className="b-sin-campo">Sin campo</span>
-                        )}
+                        <span className="b-ubicacion">
+                          {c.ubicacion_actual}
+                        </span>
                       </div>
                       <div>
                         {reg ? (

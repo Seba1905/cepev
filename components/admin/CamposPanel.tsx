@@ -45,6 +45,7 @@ type SiembraRow = {
   campo_id: string;
   fecha: string;
   kits_vendidos: number;
+  seguidores_ivpt: number;
   colportores: { nombre: string };
 };
 
@@ -83,6 +84,9 @@ export default function CamposPanel({ user }: { user: User }) {
     Colportor[]
   >([]);
   const [colportorSeleccionado, setColportorSeleccionado] = useState("");
+  const [busquedaColportor, setBusquedaColportor] = useState("");
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  const [fechaIngreso, setFechaIngreso] = useState("");
   const [savingColportor, setSavingColportor] = useState(false);
   const [conflicto, setConflicto] = useState<{
     nombre: string;
@@ -98,6 +102,7 @@ export default function CamposPanel({ user }: { user: User }) {
   const [confirmarReactivar, setConfirmarReactivar] = useState<string | null>(
     null,
   );
+  const [confirmarEliminar, setConfirmarEliminar] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCampos();
@@ -288,6 +293,15 @@ export default function CamposPanel({ user }: { user: User }) {
     fetchCampos();
   }
 
+  async function handleEliminarCampo(id: string) {
+    await supabase.from("campo_colportores").delete().eq("campo_id", id);
+    await supabase.from("siembra").delete().eq("campo_id", id);
+    await supabase.from("campos").delete().eq("id", id);
+    setConfirmarEliminar(null);
+    if (vistaDetalle?.id === id) setVistaDetalle(null);
+    fetchCampos();
+  }
+
   async function handleRetirarColportor(registro: CampoColportor) {
     const hoy = new Date().toISOString().split("T")[0];
     await supabase
@@ -309,6 +323,9 @@ export default function CamposPanel({ user }: { user: User }) {
       .order("nombre");
     setColportoresDisponibles(todos || []);
     setColportorSeleccionado("");
+    setBusquedaColportor("");
+    setMostrarSugerencias(false);
+    setFechaIngreso(new Date().toISOString().split("T")[0]);
     setConflicto(null);
     setPendienteTraslado(null);
     setModalAgregar(true);
@@ -351,6 +368,7 @@ export default function CamposPanel({ user }: { user: User }) {
 
   async function ejecutarAgregar(colportorId: string, traslado = false) {
     const hoy = new Date().toISOString().split("T")[0];
+    const fechaIngresoFinal = fechaIngreso || hoy;
     if (traslado) {
       await supabase
         .from("campo_colportores")
@@ -361,7 +379,7 @@ export default function CamposPanel({ user }: { user: User }) {
     await supabase.from("campo_colportores").insert({
       campo_id: vistaDetalle!.id,
       colportor_id: colportorId,
-      fecha_ingreso: hoy,
+      fecha_ingreso: fechaIngresoFinal,
       estado: "activo",
     });
     await supabase
@@ -381,29 +399,41 @@ export default function CamposPanel({ user }: { user: User }) {
   const siembraEquipoAgrupada = equipoCampo
     .filter((e) => e.colportores)
     .map((e) => {
-      const kits = siembraData
-        .filter((s) => s.colportor_id === e.colportor_id)
-        .reduce((a, s) => a + s.kits_vendidos, 0);
-      return { id: e.colportor_id, nombre: e.colportores.nombre, kits };
+      const registros = siembraData.filter((s) => s.colportor_id === e.colportor_id);
+      const kits = registros.reduce((a, s) => a + s.kits_vendidos, 0);
+      const ivpt = registros.reduce((a, s) => a + (s.seguidores_ivpt || 0), 0);
+      return { id: e.colportor_id, nombre: e.colportores.nombre, kits, ivpt };
     })
     .filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i)
     .sort((a, b) => b.kits - a.kits);
 
   const totalKitsEquipo = siembraEquipoAgrupada.reduce((a, e) => a + e.kits, 0);
+  const totalIvptEquipo = siembraEquipoAgrupada.reduce((a, e) => a + e.ivpt, 0);
+
+  // Siembra equipo agrupada por fecha (suma de todo el equipo día a día)
+  const siembraEquipoPorFecha = siembraData.reduce(
+    (acc, s) => {
+      if (!acc[s.fecha]) acc[s.fecha] = { kits: 0, ivpt: 0 };
+      acc[s.fecha].kits += s.kits_vendidos;
+      acc[s.fecha].ivpt += s.seguidores_ivpt || 0;
+      return acc;
+    },
+    {} as Record<string, { kits: number; ivpt: number }>,
+  );
 
   // Siembra individual agrupada por fecha
   const siembraIndividualPorFecha = siembraData.reduce(
     (acc, s) => {
-      acc[s.fecha] = (acc[s.fecha] || 0) + s.kits_vendidos;
+      if (!acc[s.fecha]) acc[s.fecha] = { kits: 0, ivpt: 0 };
+      acc[s.fecha].kits += s.kits_vendidos;
+      acc[s.fecha].ivpt += s.seguidores_ivpt || 0;
       return acc;
     },
-    {} as Record<string, number>,
+    {} as Record<string, { kits: number; ivpt: number }>,
   );
 
-  const totalKitsIndividual = siembraData.reduce(
-    (a, s) => a + s.kits_vendidos,
-    0,
-  );
+  const totalKitsIndividual = siembraData.reduce((a, s) => a + s.kits_vendidos, 0);
+  const totalIvptIndividual = siembraData.reduce((a, s) => a + (s.seguidores_ivpt || 0), 0);
 
   function formatFecha(f: string) {
     return new Date(f + "T00:00:00").toLocaleDateString("es-CO", {
@@ -454,6 +484,8 @@ export default function CamposPanel({ user }: { user: User }) {
         .btn-cerrar-campo:hover { background: #DC2626; color: #fff; }
         .btn-reactivar { padding: 7px 14px; border: 1.5px solid rgba(16,185,129,0.3); border-radius: 9px; background: rgba(16,185,129,0.08); color: #065F46; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
         .btn-reactivar:hover { background: #065F46; color: #fff; }
+        .btn-eliminar-campo { padding: 7px 14px; border: 1.5px solid #FECACA; border-radius: 9px; background: #FEF2F2; color: #DC2626; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
+        .btn-eliminar-campo:hover { background: #DC2626; color: #fff; }
         .btn-agregar { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border: none; border-radius: 9px; background: #0D1F45; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
         .btn-agregar:hover { background: #1A3A6B; }
 
@@ -507,6 +539,23 @@ export default function CamposPanel({ user }: { user: User }) {
         .siembra-fecha { font-size: 12px; color: #8A9CC0; }
         .b-kits { display: inline-block; background: rgba(245,166,35,0.12); color: #B8760A; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
         .b-kits-zero { display: inline-block; background: #F0F3FA; color: #8A9CC0; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+        .b-ivpt { display: inline-block; background: rgba(43,91,168,0.1); color: #1A3A6B; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+        .b-ivpt-zero { display: inline-block; background: #F0F3FA; color: #8A9CC0; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+
+        /* Gráfica de línea */
+        .bar-chart-legend { display: flex; gap: 14px; padding: 0.8rem 1rem 0.2rem; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #4A6080; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .bar-chart-scroll { overflow-x: auto; padding: 0 1rem 0.8rem; }
+
+        /* Totales card con ivpt */
+        .siembra-total-card-2 { background: rgba(245,166,35,0.08); border: 1.5px solid rgba(245,166,35,0.3); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+        .total-stat { display: flex; flex-direction: column; align-items: flex-end; }
+        .total-stat-num { font-family: 'Sora', sans-serif; font-size: 26px; font-weight: 800; }
+        .total-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; }
+        .total-stats-row { display: flex; gap: 1.5rem; }
+        .total-kits-num { color: #B8760A; }
+        .total-ivpt-num { color: #1A3A6B; }
 
         .empty-detalle { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: #8A9CC0; font-size: 13px; gap: 8px; padding: 2rem; text-align: center; }
         .empty-icon { font-size: 32px; opacity: 0.4; }
@@ -533,6 +582,14 @@ export default function CamposPanel({ user }: { user: User }) {
         .conflicto-btns { display: flex; gap: 8px; flex-wrap: wrap; }
         .btn-traslado { padding: 7px 14px; border: none; border-radius: 8px; background: #F5A623; color: #0D1F45; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
         .btn-cancelar-traslado { padding: 7px 14px; border: 1.5px solid #E4E8F0; border-radius: 8px; background: #fff; color: #4A6080; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .autocomplete-wrap { position: relative; }
+        .autocomplete-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1.5px solid #E4E8F0; border-radius: 10px; box-shadow: 0 8px 24px rgba(13,31,69,0.12); z-index: 200; max-height: 200px; overflow-y: auto; }
+        .autocomplete-item { padding: 10px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid #F0F3FA; transition: background 0.15s; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item:hover { background: #F0F5FF; }
+        .autocomplete-nombre { font-size: 13px; font-weight: 600; color: #0D1F45; }
+        .autocomplete-doc { font-size: 11px; color: #8A9CC0; }
+        .autocomplete-empty { padding: 12px 14px; font-size: 13px; color: #8A9CC0; text-align: center; }
         .confirm-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 380px; padding: 1.5rem; text-align: center; }
         .confirm-title { font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 700; color: #0D1F45; margin-bottom: 0.5rem; }
         .confirm-sub { font-size: 13px; color: #8A9CC0; margin-bottom: 1.5rem; line-height: 1.6; }
@@ -691,14 +748,24 @@ export default function CamposPanel({ user }: { user: User }) {
                               </button>
                             </>
                           ) : (
-                            <button
-                              className="btn-reactivar"
-                              onClick={() =>
-                                setConfirmarReactivar(vistaDetalle.id)
-                              }
-                            >
-                              Reactivar campo
-                            </button>
+                            <>
+                              <button
+                                className="btn-reactivar"
+                                onClick={() =>
+                                  setConfirmarReactivar(vistaDetalle.id)
+                                }
+                              >
+                                Reactivar campo
+                              </button>
+                              <button
+                                className="btn-eliminar-campo"
+                                onClick={() =>
+                                  setConfirmarEliminar(vistaDetalle.id)
+                                }
+                              >
+                                Eliminar campo
+                              </button>
+                            </>
                           ))}
                       </div>
                     </div>
@@ -933,62 +1000,105 @@ export default function CamposPanel({ user }: { user: User }) {
                             </div>
                           ) : (
                             <>
-                              <div className="siembra-total-card">
+                              <div className="siembra-total-card-2">
                                 <div>
-                                  <div className="siembra-total-label">
-                                    Total del equipo
-                                  </div>
-                                  <div className="siembra-total-sub">
-                                    {getLabelNav()}
-                                  </div>
+                                  <div className="siembra-total-label">Total del equipo</div>
+                                  <div className="siembra-total-sub">{getLabelNav()}</div>
                                 </div>
-                                <div>
-                                  <div className="siembra-total-num">
-                                    {totalKitsEquipo}
+                                <div className="total-stats-row">
+                                  <div className="total-stat">
+                                    <div className="total-stat-num total-kits-num">{totalKitsEquipo}</div>
+                                    <div className="total-stat-label" style={{ color: "#B8760A" }}>kits</div>
                                   </div>
-                                  <div
-                                    style={{
-                                      fontSize: 11,
-                                      color: "#B8760A",
-                                      textAlign: "right",
-                                    }}
-                                  >
-                                    kits
+                                  <div className="total-stat">
+                                    <div className="total-stat-num total-ivpt-num">{totalIvptEquipo}</div>
+                                    <div className="total-stat-label" style={{ color: "#1A3A6B" }}>IVPT</div>
                                   </div>
                                 </div>
                               </div>
                               {siembraEquipoAgrupada.length === 0 ? (
                                 <div className="empty-detalle">
                                   <div className="empty-icon">🌱</div>
-                                  <div>
-                                    Sin registros de siembra en este período
-                                  </div>
+                                  <div>Sin registros de siembra en este período</div>
                                 </div>
-                              ) : (
-                                <div
-                                  style={{
-                                    background: "#fff",
-                                    border: "1.5px solid #E4E8F0",
-                                    borderRadius: 10,
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  {siembraEquipoAgrupada.map((e, i) => (
+                              ) : periodoSiembra === "dia" ? (
+                                // Vista día: lista por colportor con kits e ivpt
+                                <div style={{ background: "#fff", border: "1.5px solid #E4E8F0", borderRadius: 10, overflow: "hidden" }}>
+                                  {siembraEquipoAgrupada.map((e) => (
                                     <div key={e.id} className="siembra-row">
-                                      <div>
-                                        <div className="siembra-nombre">
-                                          {e.nombre}
-                                        </div>
+                                      <div className="siembra-nombre">{e.nombre}</div>
+                                      <div style={{ display: "flex", gap: 6 }}>
+                                        <span className={e.kits > 0 ? "b-kits" : "b-kits-zero"}>{e.kits} kits</span>
+                                        <span className={e.ivpt > 0 ? "b-ivpt" : "b-ivpt-zero"}>{e.ivpt} IVPT</span>
                                       </div>
-                                      <span
-                                        className={
-                                          e.kits > 0 ? "b-kits" : "b-kits-zero"
-                                        }
-                                      >
-                                        {e.kits} kits
-                                      </span>
                                     </div>
                                   ))}
+                                </div>
+                              ) : (
+                                // Vista semana/mes: gráfica de línea doble día a día del equipo
+                                <div style={{ background: "#fff", border: "1.5px solid #E4E8F0", borderRadius: 10, overflow: "hidden" }}>
+                                  <div className="bar-chart-legend">
+                                    <div className="legend-item"><div className="legend-dot" style={{ background: "#F5A623" }}></div>Kits sembrados</div>
+                                    <div className="legend-item"><div className="legend-dot" style={{ background: "#2B5BA8" }}></div>Seguidores IVPT</div>
+                                  </div>
+                                  <div className="bar-chart-scroll">
+                                    {(() => {
+                                      const entries = Object.entries(siembraEquipoPorFecha).sort(([a], [b]) => a.localeCompare(b));
+                                      if (entries.length === 0) return <div className="empty-detalle" style={{height:120}}><div className="empty-icon">🌱</div><div>Sin registros</div></div>;
+                                      const maxVal = Math.max(...entries.flatMap(([, v]) => [v.kits, v.ivpt]), 1);
+                                      const marginL = 30; const marginR = 16; const marginT = 28; const marginB = 38;
+                                      const colW = Math.max(56, Math.floor(320 / entries.length));
+                                      const svgW = Math.max(marginL + entries.length * colW + marginR, 320);
+                                      const svgH = 200;
+                                      const chartH = svgH - marginT - marginB;
+                                      const px = (i: number) => marginL + i * colW + colW / 2;
+                                      const py = (v: number) => marginT + chartH - (v / maxVal) * chartH;
+                                      const fmtShort = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
+                                      const kitsPoints = entries.map(([, v], i) => `${px(i)},${py(v.kits)}`).join(" ");
+                                      const ivptPoints = entries.map(([, v], i) => `${px(i)},${py(v.ivpt)}`).join(" ");
+                                      return (
+                                        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
+                                          {/* Grid horizontal */}
+                                          {[0, 0.25, 0.5, 0.75, 1].map(t => {
+                                            const y = marginT + chartH - t * chartH;
+                                            return (
+                                              <g key={t}>
+                                                <line x1={marginL} y1={y} x2={svgW - marginR} y2={y} stroke="#F0F3FA" strokeWidth="1" />
+                                                <text x={marginL - 4} y={y + 4} fontSize="9" fill="#8A9CC0" textAnchor="end">{Math.round(t * maxVal)}</text>
+                                              </g>
+                                            );
+                                          })}
+                                          {/* Área kits (relleno suave) */}
+                                          <polygon
+                                            points={`${px(0)},${marginT + chartH} ${kitsPoints} ${px(entries.length - 1)},${marginT + chartH}`}
+                                            fill="rgba(245,166,35,0.08)"
+                                          />
+                                          {/* Área ivpt (relleno suave) */}
+                                          <polygon
+                                            points={`${px(0)},${marginT + chartH} ${ivptPoints} ${px(entries.length - 1)},${marginT + chartH}`}
+                                            fill="rgba(43,91,168,0.07)"
+                                          />
+                                          {/* Línea kits */}
+                                          <polyline points={kitsPoints} fill="none" stroke="#F5A623" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                                          {/* Línea ivpt */}
+                                          <polyline points={ivptPoints} fill="none" stroke="#2B5BA8" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                                          {/* Puntos y etiquetas */}
+                                          {entries.map(([fecha, v], i) => (
+                                            <g key={fecha}>
+                                              <circle cx={px(i)} cy={py(v.kits)} r="4" fill="#fff" stroke="#F5A623" strokeWidth="2" />
+                                              <circle cx={px(i)} cy={py(v.ivpt)} r="4" fill="#fff" stroke="#2B5BA8" strokeWidth="2" />
+                                              {v.kits > 0 && <text x={px(i)} y={py(v.kits) - 8} fontSize="9" fill="#B8760A" textAnchor="middle" fontWeight="700">{v.kits}</text>}
+                                              {v.ivpt > 0 && <text x={px(i)} y={py(v.ivpt) - 8} fontSize="9" fill="#1A3A6B" textAnchor="middle" fontWeight="700">{v.ivpt}</text>}
+                                              {/* Fecha eje X */}
+                                              <text x={px(i)} y={svgH - marginB + 14} fontSize="9" fill="#4A6080" textAnchor="middle" fontWeight="600">{fmtShort(fecha)}</text>
+                                            </g>
+                                          ))}
+                                          {/* Eje X base */}
+                                          <line x1={marginL} y1={marginT + chartH} x2={svgW - marginR} y2={marginT + chartH} stroke="#E4E8F0" strokeWidth="1.5" />
+                                        </svg>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                               )}
                             </>
@@ -1082,80 +1192,101 @@ export default function CamposPanel({ user }: { user: User }) {
                           {!colportorFiltro ? (
                             <div className="empty-detalle">
                               <div className="empty-icon">👆</div>
-                              <div>
-                                Selecciona un colportor para ver su siembra
-                              </div>
+                              <div>Selecciona un colportor para ver su siembra</div>
                             </div>
                           ) : loadingSiembra ? (
-                            <div
-                              style={{
-                                textAlign: "center",
-                                padding: "2rem",
-                                color: "#8A9CC0",
-                                fontSize: 13,
-                              }}
-                            >
+                            <div style={{ textAlign: "center", padding: "2rem", color: "#8A9CC0", fontSize: 13 }}>
                               Cargando...
                             </div>
                           ) : (
                             <>
-                              <div className="siembra-total-card">
+                              <div className="siembra-total-card-2">
                                 <div>
-                                  <div className="siembra-total-label">
-                                    Total individual
-                                  </div>
-                                  <div className="siembra-total-sub">
-                                    {getLabelNav()}
-                                  </div>
+                                  <div className="siembra-total-label">Total individual</div>
+                                  <div className="siembra-total-sub">{getLabelNav()}</div>
                                 </div>
-                                <div>
-                                  <div className="siembra-total-num">
-                                    {totalKitsIndividual}
+                                <div className="total-stats-row">
+                                  <div className="total-stat">
+                                    <div className="total-stat-num total-kits-num">{totalKitsIndividual}</div>
+                                    <div className="total-stat-label" style={{ color: "#B8760A" }}>kits</div>
                                   </div>
-                                  <div
-                                    style={{
-                                      fontSize: 11,
-                                      color: "#B8760A",
-                                      textAlign: "right",
-                                    }}
-                                  >
-                                    kits
+                                  <div className="total-stat">
+                                    <div className="total-stat-num total-ivpt-num">{totalIvptIndividual}</div>
+                                    <div className="total-stat-label" style={{ color: "#1A3A6B" }}>IVPT</div>
                                   </div>
                                 </div>
                               </div>
-                              {Object.keys(siembraIndividualPorFecha).length ===
-                              0 ? (
+                              {Object.keys(siembraIndividualPorFecha).length === 0 ? (
                                 <div className="empty-detalle">
                                   <div className="empty-icon">🌱</div>
-                                  <div>
-                                    Sin registros de siembra en este período
-                                  </div>
+                                  <div>Sin registros de siembra en este período</div>
                                 </div>
-                              ) : (
-                                <div
-                                  style={{
-                                    background: "#fff",
-                                    border: "1.5px solid #E4E8F0",
-                                    borderRadius: 10,
-                                    overflow: "hidden",
-                                  }}
-                                >
+                              ) : periodoSiembra === "dia" ? (
+                                // Vista día: un solo número por colportor
+                                <div style={{ background: "#fff", border: "1.5px solid #E4E8F0", borderRadius: 10, overflow: "hidden" }}>
                                   {Object.entries(siembraIndividualPorFecha)
                                     .sort(([a], [b]) => a.localeCompare(b))
-                                    .map(([fecha, kits]) => (
+                                    .map(([fecha, vals]) => (
                                       <div key={fecha} className="siembra-row">
-                                        <span className="siembra-fecha">
-                                          {formatFecha(fecha)}
-                                        </span>
-                                        <span
-                                          className={
-                                            kits > 0 ? "b-kits" : "b-kits-zero"
-                                          }
-                                        >
-                                          {kits} kits
-                                        </span>
+                                        <span className="siembra-fecha">{formatFecha(fecha)}</span>
+                                        <div style={{ display: "flex", gap: 6 }}>
+                                          <span className={vals.kits > 0 ? "b-kits" : "b-kits-zero"}>{vals.kits} kits</span>
+                                          <span className={vals.ivpt > 0 ? "b-ivpt" : "b-ivpt-zero"}>{vals.ivpt} IVPT</span>
+                                        </div>
                                       </div>
                                     ))}
+                                </div>
+                              ) : (
+                                // Vista semana/mes: gráfica de línea doble día a día del colportor
+                                <div style={{ background: "#fff", border: "1.5px solid #E4E8F0", borderRadius: 10, overflow: "hidden" }}>
+                                  <div className="bar-chart-legend">
+                                    <div className="legend-item"><div className="legend-dot" style={{ background: "#F5A623" }}></div>Kits sembrados</div>
+                                    <div className="legend-item"><div className="legend-dot" style={{ background: "#2B5BA8" }}></div>Seguidores IVPT</div>
+                                  </div>
+                                  <div className="bar-chart-scroll">
+                                    {(() => {
+                                      const entries = Object.entries(siembraIndividualPorFecha).sort(([a], [b]) => a.localeCompare(b));
+                                      if (entries.length === 0) return <div className="empty-detalle" style={{height:120}}><div className="empty-icon">🌱</div><div>Sin registros</div></div>;
+                                      const maxVal = Math.max(...entries.flatMap(([, v]) => [v.kits, v.ivpt]), 1);
+                                      const marginL = 30; const marginR = 16; const marginT = 28; const marginB = 38;
+                                      const colW = Math.max(56, Math.floor(320 / entries.length));
+                                      const svgW = Math.max(marginL + entries.length * colW + marginR, 320);
+                                      const svgH = 200;
+                                      const chartH = svgH - marginT - marginB;
+                                      const px = (i: number) => marginL + i * colW + colW / 2;
+                                      const py = (v: number) => marginT + chartH - (v / maxVal) * chartH;
+                                      const fmtShort = (f: string) => new Date(f + "T00:00:00").toLocaleDateString("es-CO", { day: "2-digit", month: "short" });
+                                      const kitsPoints = entries.map(([, v], i) => `${px(i)},${py(v.kits)}`).join(" ");
+                                      const ivptPoints = entries.map(([, v], i) => `${px(i)},${py(v.ivpt)}`).join(" ");
+                                      return (
+                                        <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: "block" }}>
+                                          {[0, 0.25, 0.5, 0.75, 1].map(t => {
+                                            const y = marginT + chartH - t * chartH;
+                                            return (
+                                              <g key={t}>
+                                                <line x1={marginL} y1={y} x2={svgW - marginR} y2={y} stroke="#F0F3FA" strokeWidth="1" />
+                                                <text x={marginL - 4} y={y + 4} fontSize="9" fill="#8A9CC0" textAnchor="end">{Math.round(t * maxVal)}</text>
+                                              </g>
+                                            );
+                                          })}
+                                          <polygon points={`${px(0)},${marginT + chartH} ${kitsPoints} ${px(entries.length - 1)},${marginT + chartH}`} fill="rgba(245,166,35,0.08)" />
+                                          <polygon points={`${px(0)},${marginT + chartH} ${ivptPoints} ${px(entries.length - 1)},${marginT + chartH}`} fill="rgba(43,91,168,0.07)" />
+                                          <polyline points={kitsPoints} fill="none" stroke="#F5A623" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                                          <polyline points={ivptPoints} fill="none" stroke="#2B5BA8" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                                          {entries.map(([fecha, v], i) => (
+                                            <g key={fecha}>
+                                              <circle cx={px(i)} cy={py(v.kits)} r="4" fill="#fff" stroke="#F5A623" strokeWidth="2" />
+                                              <circle cx={px(i)} cy={py(v.ivpt)} r="4" fill="#fff" stroke="#2B5BA8" strokeWidth="2" />
+                                              {v.kits > 0 && <text x={px(i)} y={py(v.kits) - 8} fontSize="9" fill="#B8760A" textAnchor="middle" fontWeight="700">{v.kits}</text>}
+                                              {v.ivpt > 0 && <text x={px(i)} y={py(v.ivpt) - 8} fontSize="9" fill="#1A3A6B" textAnchor="middle" fontWeight="700">{v.ivpt}</text>}
+                                              <text x={px(i)} y={svgH - marginB + 14} fontSize="9" fill="#4A6080" textAnchor="middle" fontWeight="600">{fmtShort(fecha)}</text>
+                                            </g>
+                                          ))}
+                                          <line x1={marginL} y1={marginT + chartH} x2={svgW - marginR} y2={marginT + chartH} stroke="#E4E8F0" strokeWidth="1.5" />
+                                        </svg>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                               )}
                             </>
@@ -1276,23 +1407,65 @@ export default function CamposPanel({ user }: { user: User }) {
             </div>
             <div className="modal-body">
               <div>
-                <label className="field-label">Seleccionar colportor</label>
-                <select
-                  className="field-select"
-                  value={colportorSeleccionado}
-                  onChange={(e) => {
-                    setColportorSeleccionado(e.target.value);
-                    setConflicto(null);
-                    setPendienteTraslado(null);
-                  }}
-                >
-                  <option value="">— Selecciona un colportor —</option>
-                  {colportoresDisponibles.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre} · {c.tipo_documento} {c.numero_documento}
-                    </option>
-                  ))}
-                </select>
+                <label className="field-label">Buscar colportor</label>
+                <div className="autocomplete-wrap">
+                  <input
+                    className="field-input"
+                    placeholder="Escribe el nombre..."
+                    value={busquedaColportor}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      setBusquedaColportor(e.target.value);
+                      setColportorSeleccionado("");
+                      setConflicto(null);
+                      setPendienteTraslado(null);
+                      setMostrarSugerencias(true);
+                    }}
+                    onFocus={() => setMostrarSugerencias(true)}
+                    onBlur={() => setTimeout(() => setMostrarSugerencias(false), 150)}
+                  />
+                  {mostrarSugerencias && busquedaColportor.length > 0 && (
+                    <div className="autocomplete-list">
+                      {colportoresDisponibles
+                        .filter((c) =>
+                          c.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                            .includes(busquedaColportor.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+                        )
+                        .slice(0, 8)
+                        .map((c) => (
+                          <div
+                            key={c.id}
+                            className="autocomplete-item"
+                            onMouseDown={() => {
+                              setColportorSeleccionado(c.id);
+                              setBusquedaColportor(c.nombre);
+                              setMostrarSugerencias(false);
+                              setConflicto(null);
+                              setPendienteTraslado(null);
+                            }}
+                          >
+                            <span className="autocomplete-nombre">{c.nombre}</span>
+                            <span className="autocomplete-doc">{c.tipo_documento} · {c.numero_documento}</span>
+                          </div>
+                        ))}
+                      {colportoresDisponibles.filter((c) =>
+                        c.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                          .includes(busquedaColportor.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+                      ).length === 0 && (
+                        <div className="autocomplete-empty">Sin resultados</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="field-label">Fecha de ingreso al campo</label>
+                <input
+                  className="field-input"
+                  type="date"
+                  value={fechaIngreso}
+                  onChange={(e) => setFechaIngreso(e.target.value)}
+                />
               </div>
               {conflicto && (
                 <div className="conflicto-box">
@@ -1317,6 +1490,7 @@ export default function CamposPanel({ user }: { user: User }) {
                         setConflicto(null);
                         setPendienteTraslado(null);
                         setColportorSeleccionado("");
+                        setBusquedaColportor("");
                       }}
                     >
                       Cancelar
@@ -1339,7 +1513,7 @@ export default function CamposPanel({ user }: { user: User }) {
                 <button
                   className="btn-save"
                   onClick={handleAgregarColportor}
-                  disabled={savingColportor || !colportorSeleccionado}
+                  disabled={savingColportor || !colportorSeleccionado || !fechaIngreso}
                 >
                   {savingColportor ? "Verificando..." : "Agregar"}
                 </button>
@@ -1400,6 +1574,33 @@ export default function CamposPanel({ user }: { user: User }) {
                 onClick={() => handleCerrarCampo(confirmarCierre)}
               >
                 Cerrar campo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar eliminar */}
+      {confirmarEliminar && (
+        <div className="overlay" onClick={() => setConfirmarEliminar(null)}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-title">¿Eliminar este campo?</div>
+            <div className="confirm-sub">
+              Esta acción no se puede deshacer. Se eliminarán el campo, todos
+              sus registros de equipo y su historial de siembra.
+            </div>
+            <div className="confirm-btns">
+              <button
+                className="btn-cancel"
+                onClick={() => setConfirmarEliminar(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-danger"
+                onClick={() => handleEliminarCampo(confirmarEliminar)}
+              >
+                Eliminar
               </button>
             </div>
           </div>
