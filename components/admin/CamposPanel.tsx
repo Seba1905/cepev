@@ -96,6 +96,9 @@ export default function CamposPanel({ user }: { user: User }) {
     null,
   );
 
+  // Filtro por país
+  const [filtroPais, setFiltroPais] = useState<"todos" | "colombia" | "exterior">("todos");
+
   // Confirmaciones
   const [confirmarCierre, setConfirmarCierre] = useState<string | null>(null);
   const [confirmarRetiro, setConfirmarRetiro] = useState<string | null>(null);
@@ -435,6 +438,22 @@ export default function CamposPanel({ user }: { user: User }) {
   const totalKitsIndividual = siembraData.reduce((a, s) => a + s.kits_vendidos, 0);
   const totalIvptIndividual = siembraData.reduce((a, s) => a + (s.seguidores_ivpt || 0), 0);
 
+  function normalizarTexto(texto: string) {
+    return texto
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
+
+  const camposFiltrados = campos.filter((c) => {
+    if (filtroPais === "todos") return true;
+    const paisNorm = normalizarTexto(c.pais);
+    const esColombia = paisNorm === "colombia";
+    if (filtroPais === "colombia") return esColombia;
+    if (filtroPais === "exterior") return !esColombia;
+    return true;
+  });
+
   function formatFecha(f: string) {
     return new Date(f + "T00:00:00").toLocaleDateString("es-CO", {
       day: "2-digit",
@@ -461,6 +480,10 @@ export default function CamposPanel({ user }: { user: User }) {
         .ca-content { flex: 1; padding: 1.2rem 1.5rem; overflow-y: auto; }
         .ca-layout { display: grid; grid-template-columns: 300px 1fr; gap: 1.2rem; min-height: 100%; }
         .ca-lista { display: flex; flex-direction: column; gap: 10px; align-content: start; }
+        .ca-filtros-pais { display: flex; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+        .filtro-pais-btn { padding: 5px 14px; border-radius: 20px; border: 1.5px solid #E4E8F0; background: #F7F9FD; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; color: #8A9CC0; cursor: pointer; transition: all 0.18s; }
+        .filtro-pais-btn:hover { border-color: #2B5BA8; color: #0D1F45; }
+        .filtro-pais-btn.on { background: #0D1F45; border-color: #0D1F45; color: #fff; }
 
         .campo-card { background: #fff; border: 1.5px solid #E4E8F0; border-radius: 12px; padding: 1rem 1.2rem; cursor: pointer; transition: all 0.18s; }
         .campo-card:hover { border-color: #2B5BA8; }
@@ -644,7 +667,18 @@ export default function CamposPanel({ user }: { user: User }) {
             <div className="ca-layout">
               {/* Lista */}
               <div className="ca-lista">
-                {campos.length === 0 && (
+                <div className="ca-filtros-pais">
+                  {(["todos", "colombia", "exterior"] as const).map((f) => (
+                    <button
+                      key={f}
+                      className={`filtro-pais-btn ${filtroPais === f ? "on" : ""}`}
+                      onClick={() => setFiltroPais(f)}
+                    >
+                      {f === "todos" ? "Todos" : f === "colombia" ? "Colombia" : "Exterior"}
+                    </button>
+                  ))}
+                </div>
+                {camposFiltrados.length === 0 && (
                   <div
                     style={{
                       textAlign: "center",
@@ -656,7 +690,7 @@ export default function CamposPanel({ user }: { user: User }) {
                     No hay campos registrados
                   </div>
                 )}
-                {campos.map((campo) => (
+                {camposFiltrados.map((campo) => (
                   <div
                     key={campo.id}
                     className={`campo-card ${vistaDetalle?.id === campo.id ? "sel" : ""}`}
