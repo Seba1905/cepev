@@ -1630,16 +1630,21 @@ export default function CamposPanel({ user }: { user: User }) {
               >
                 Cancelar
               </button>
+
+              {/*}
               <button
                 className="btn-danger"
                 onClick={() => handleEliminarCampo(confirmarEliminar)}
               >
                 Eliminar
               </button>
+              */}
             </div>
           </div>
         </div>
       )}
+                
+
 
       {/* Confirmar reactivar */}
       {confirmarReactivar && (
