@@ -722,7 +722,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
                   placeholder="Ciudad de origen"
                 />
               </div>
-              {editing && (
+             {/* {editing && (
                 <div className="full">
                   <label className="field-label">Ubicación actual</label>
                   <input
@@ -735,6 +735,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
                   />
                 </div>
               )}
+            */}
               <div className="full">
                 <label className="field-label">Pasaporte</label>
                 <label className="checkbox-row">
