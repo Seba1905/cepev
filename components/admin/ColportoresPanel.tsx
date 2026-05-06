@@ -15,6 +15,7 @@ type Colportor = {
   localidad: string;
   ubicacion_actual: string | null;
   categoria: "CDA INTEGRAL" | "CEPEVISTA" | "COLPORTOR" | "PAC";
+  paisCampo?: string | null;
 };
 
 type SiembraHoy = { colportor_id: string; kits_vendidos: number };
@@ -52,6 +53,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroLocalidad, setFiltroLocalidad] = useState("");
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
+  const [filtroPais, setFiltroPais] = useState("");
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Colportor | null>(null);
   const [form, setForm] = useState(EMPTY);
@@ -66,14 +68,30 @@ export default function ColportoresPanel({ user }: { user: User }) {
 
   async function fetchAll() {
     setLoading(true);
-    const [{ data: cols }, { data: siembra }] = await Promise.all([
+    const [{ data: cols }, { data: siembra }, { data: campoColportores }] = await Promise.all([
       supabase.from("colportores").select("*").order("nombre"),
       supabase
         .from("siembra")
         .select("colportor_id, kits_vendidos")
         .eq("fecha", today),
+      supabase
+        .from("campo_colportores")
+        .select("colportor_id, campos(pais)")
+        .eq("estado", "activo"),
     ]);
-    setColportores((cols || []).map((c) => ({ ...c, ubicacion_actual: c.ubicacion_actual ?? "CEPEV" })));
+
+    // Mapa colportor_id → pais del campo activo
+    const paisMap: Record<string, string> = {};
+    (campoColportores || []).forEach((cc: any) => {
+      if (cc.campos?.pais) paisMap[cc.colportor_id] = cc.campos.pais;
+    });
+
+    const colsConPais = (cols || []).map((c) => ({
+      ...c,
+      paisCampo: paisMap[c.id] ?? null,
+    }));
+
+    setColportores(colsConPais);
     setSiembraHoy(siembra || []);
     setLoading(false);
   }
@@ -95,8 +113,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
     if (editing) {
       await supabase.from("colportores").update(form).eq("id", editing.id);
     } else {
-      const ubicacion_actual = form.categoria === "PAC" ? "PAC" : "CEPEV";
-      await supabase.from("colportores").insert({ ...form, ubicacion_actual });
+      await supabase.from("colportores").insert({ ...form, ubicacion_actual: null });
     }
     setSaving(false);
     setModal(false);
@@ -138,6 +155,15 @@ export default function ColportoresPanel({ user }: { user: User }) {
     ).values(),
   ].sort((a, b) => normalize(a).localeCompare(normalize(b)));
 
+  const paises = [
+    ...new Map(
+      colportores
+        .map((c) => c.paisCampo)
+        .filter(Boolean)
+        .map((v) => [normalize(v!), v!] as [string, string])
+    ).values(),
+  ].sort((a, b) => normalize(a).localeCompare(normalize(b)));
+
   // Filtrado por card + búsqueda + filtros de columna
   const filtered = colportores
     .filter((c) => {
@@ -154,7 +180,8 @@ export default function ColportoresPanel({ user }: { user: User }) {
           ? (c.ubicacion_actual === null || normalize(c.ubicacion_actual) === "cepev")
           : normalize(c.ubicacion_actual ?? "") === normalize(filtroUbicacion)
       ) : true,
-    );
+    )
+    .filter((c) => (filtroPais ? normalize(c.paisCampo ?? "") === normalize(filtroPais) : true));
 
   const stats = {
     total: colportores.length,
@@ -399,8 +426,8 @@ export default function ColportoresPanel({ user }: { user: User }) {
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
             >
-              <option value="">Todas las categorías</option>
-              {["CDA INTEGRAL", "CEPEVISTA", "COLPORTOR", "PAC"].map((cat) => (
+              <option value="">Todas los equipos</option>
+              {["CDA INTEGRAL", "CEPEVISTA", "EJERCITO CELESTIAL","COLPORTOR", "PAC"].map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>
@@ -426,7 +453,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
                 value={filtroUbicacion}
                 onChange={(e) => setFiltroUbicacion(e.target.value)}
               >
-                <option value="">Todas las ubicaciones</option>
+                <option value="">Todos los campos</option>
                 {ubicaciones.map((u) => (
                   <option key={u} value={u}>
                     {u}
@@ -434,6 +461,18 @@ export default function ColportoresPanel({ user }: { user: User }) {
                 ))}
               </select>
             )}
+            <select
+              className="cp-filter-select"
+              value={filtroPais}
+              onChange={(e) => setFiltroPais(e.target.value)}
+            >
+              <option value="">Todos los países</option>
+              {paises.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Tabla */}
@@ -606,7 +645,9 @@ export default function ColportoresPanel({ user }: { user: User }) {
                               {c.ubicacion_actual}
                             </span>
                           ) : (
-                            <span className="b-none">CEPEV</span>
+                            <span className="b-none">
+                              {c.categoria === "PAC" ? "PAC" : "CEPEV"}
+                            </span>
                           )}
                         </span>
                         {user?.role === 'admin' && actionBtns(c)}
@@ -707,6 +748,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
                 >
                   <option value="CDA INTEGRAL">CDA INTEGRAL</option>
                   <option value="CEPEVISTA">CEPEVISTA</option>
+                  <option value="EJERCITO CELESTIAL">EJERCITO CELESTIAL</option>
                   <option value="COLPORTOR">COLPORTOR</option>
                   <option value="PAC">PAC</option>
                 </select>

@@ -6,7 +6,19 @@ import autoTable from 'jspdf-autotable'
 
 type User = { id: string; name: string; phone: string; role: string }
 type Campo = { id: string; ciudad: string; pais: string; estado: string }
-type Categoria = 'CDA INTEGRAL' | 'CEPEVISTA' | 'COLPORTOR' | 'PAC' | ''
+type Categoria = 'CDA INTEGRAL' | 'CEPEVISTA' | 'COLPORTOR' | 'PAC' | 'EJERCITO CELESTIAL' | ''
+
+// Estructura de datos para la vista previa en pantalla
+type PreviewData = {
+  titulo: string
+  subtitulo?: string
+  secciones: {
+    titulo?: string
+    columnas: string[]
+    filas: (string | number)[][]
+    totales?: (string | number)[]
+  }[]
+}
 
 export default function ReportesPanel({ user }: { user: User }) {
   const [campos, setCampos] = useState<Campo[]>([])
@@ -14,6 +26,10 @@ export default function ReportesPanel({ user }: { user: User }) {
   const [logoBase64, setLogoBase64] = useState<string>('')
   const [logoHeaderBase64, setLogoHeaderBase64] = useState<string>('')
   const [logoAspect, setLogoAspect] = useState<number>(1)
+
+  // Estado para la vista previa
+  const [preview, setPreview] = useState<PreviewData | null>(null)
+  const [previsualizando, setPrevisualizando] = useState<string | null>(null)
 
   const [filtroCategoria, setFiltroCategoria] = useState<Categoria>('')
   const [filtroSiembraInicio, setFiltroSiembraInicio] = useState('')
@@ -58,7 +74,6 @@ export default function ReportesPanel({ user }: { user: User }) {
       ])
       setLogoBase64(b1)
       setLogoHeaderBase64(b2)
-      // Calcular aspect ratio real del logo para la marca de agua
       const img = new Image()
       img.onload = () => setLogoAspect(img.naturalWidth / img.naturalHeight)
       img.src = b1
@@ -79,74 +94,76 @@ export default function ReportesPanel({ user }: { user: User }) {
     return new Date(f + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
   }
 
-function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?: string, logoAspect: number = 1) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const W = doc.internal.pageSize.getWidth()
-  const H = doc.internal.pageSize.getHeight()
+  function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?: string, logoAspect: number = 1) {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = doc.internal.pageSize.getWidth()
+    const H = doc.internal.pageSize.getHeight()
 
-  const drawHeaderFooter = (pageNum: number, totalPages: number) => {
-    // Marca de agua con opacidad nativa de jsPDF, respetando proporción original
-    if (logo) {
-  try {
-    const size = 70
-    const imgW = logoAspect >= 1 ? size * logoAspect : size
-    const imgH = logoAspect >= 1 ? size / logoAspect : size
-    ;(doc as any).setGState((doc as any).GState({ opacity: 0.10 }))
-    doc.addImage(logo, 'PNG', W / 2 - imgW / 2, H / 2 - imgH / 2, imgW, imgH)
-    ;(doc as any).setGState((doc as any).GState({ opacity: 1 }))
-  } catch (e) {}
-}
+    const drawHeaderFooter = (pageNum: number, totalPages: number) => {
+      if (logo) {
+        try {
+          const size = 70
+          const imgW = logoAspect >= 1 ? size * logoAspect : size
+          const imgH = logoAspect >= 1 ? size / logoAspect : size
+          ;(doc as any).setGState((doc as any).GState({ opacity: 0.10 }))
+          doc.addImage(logo, 'PNG', W / 2 - imgW / 2, H / 2 - imgH / 2, imgW, imgH)
+          ;(doc as any).setGState((doc as any).GState({ opacity: 1 }))
+        } catch (e) {}
+      }
 
-    // --- Tu código de Header azul y Dorado (Sin cambios) ---
-    doc.setFillColor(13, 31, 69);
-    doc.rect(0, 0, W, 26, 'F');
-    doc.setFillColor(245, 166, 35);
-    doc.rect(0, 26, W, 3, 'F');
+      doc.setFillColor(13, 31, 69)
+      doc.rect(0, 0, W, 26, 'F')
+      doc.setFillColor(245, 166, 35)
+      doc.rect(0, 26, W, 3, 'F')
 
-    if (logoHeader) {
-      try { doc.addImage(logoHeader, 'PNG', 3, 1, 20, 20); } catch (e) {}
+      if (logoHeader) {
+        try { doc.addImage(logoHeader, 'PNG', 3, 1, 20, 20) } catch (e) {}
+      }
+
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(245, 166, 35)
+      doc.text(titulo, W / 2, 12, { align: 'center' })
+
+      if (subtitulo) {
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(180, 200, 230)
+        const sub = subtitulo.length > 80 ? subtitulo.substring(0, 80) + '...' : subtitulo
+        doc.text(sub, W / 2, 19, { align: 'center' })
+      }
+
+      doc.setFillColor(13, 31, 69)
+      doc.rect(0, H - 10, W, 10, 'F')
+      doc.setTextColor(180, 195, 220)
+      doc.setFontSize(7)
+      doc.text('CEPEV — Sistema de Gestión de Colportores', 14, H - 4)
+      doc.text(`Página ${pageNum} de ${totalPages}`, W - 14, H - 4, { align: 'right' })
     }
 
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(245, 166, 35);
-    doc.text(titulo, W / 2, 12, { align: 'center' });
-
-    if (subtitulo) {
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(180, 200, 230);
-      const sub = subtitulo.length > 80 ? subtitulo.substring(0, 80) + '...' : subtitulo;
-      doc.text(sub, W / 2, 19, { align: 'center' });
+    const addFooter = () => {
+      const total = (doc as any).internal.getNumberOfPages()
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i)
+        drawHeaderFooter(i, total)
+      }
     }
 
-    // --- Footer (Sin cambios) ---
-    doc.setFillColor(13, 31, 69);
-    doc.rect(0, H - 10, W, 10, 'F');
-    doc.setTextColor(180, 195, 220);
-    doc.setFontSize(7);
-    doc.text('CEPEV — Sistema de Gestión de Colportores', 14, H - 4);
-    doc.text(`Página ${pageNum} de ${totalPages}`, W - 14, H - 4, { align: 'right' });
-  };
+    return { doc, addFooter, startY: 34 }
+  }
 
-  const addFooter = () => {
-    const total = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= total; i++) {
-      doc.setPage(i);
-      drawHeaderFooter(i, total);
-    }
-  };
-
-  return { doc, addFooter, startY: 34 };
-}
-
-  // ─── REPORTE 1: Misioneros por categoría ───
-  async function reporte1() {
-    setGenerando('r1')
+  // ─── REPORTE 1 ───
+  async function fetchDatosR1() {
     let query = supabase.from('colportores').select('*').order('categoria').order('nombre')
     if (filtroCategoria) query = query.eq('categoria', filtroCategoria)
     const { data } = await query
-    if (!data?.length) { setGenerando(null); return }
+    return data || []
+  }
+
+  async function reporte1() {
+    setGenerando('r1')
+    const data = await fetchDatosR1()
+    if (!data.length) { setGenerando(null); return }
 
     const titulo = filtroCategoria ? `Misioneros — ${filtroCategoria}` : 'Todos los Misioneros por Categoría'
     const { doc, addFooter, startY } = basePDF(titulo, `Total: ${data.length} misioneros`, logoBase64, logoHeaderBase64, logoAspect)
@@ -159,7 +176,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
         calcularEdad(c.fecha_nacimiento),
         `${c.tipo_documento} ${c.numero_documento}`,
         c.localidad || '—',
-        c.ubicacion_actual || 'Sin campo',
+        c.ubicacion_actual || (c.categoria === 'PAC' ? 'PAC' : 'CEPEV'),
         c.tiene_pasaporte ? 'Sí' : 'No',
         c.categoria
       ]),
@@ -175,53 +192,77 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
     setGenerando(null)
   }
 
-  // ─── REPORTE 2: Colportores en campo ───
-  async function reporte2() {
-    setGenerando('r2')
+  async function verR1() {
+    setPrevisualizando('r1')
+    const data = await fetchDatosR1()
+    const titulo = filtroCategoria ? `Misioneros — ${filtroCategoria}` : 'Todos los Misioneros por Categoría'
+    setPreview({
+      titulo,
+      subtitulo: `Total: ${data.length} misioneros`,
+      secciones: [{
+        columnas: ['Nombre', 'Edad', 'Documento', 'Localidad', 'Ubicación', 'Pasaporte', 'Categoría'],
+        filas: data.map(c => [
+          c.nombre,
+          calcularEdad(c.fecha_nacimiento),
+          `${c.tipo_documento} ${c.numero_documento}`,
+          c.localidad || '—',
+          c.ubicacion_actual || (c.categoria === 'PAC' ? 'PAC' : 'CEPEV'),
+          c.tiene_pasaporte ? 'Sí' : 'No',
+          c.categoria
+        ])
+      }]
+    })
+    setPrevisualizando(null)
+  }
+
+  // ─── REPORTE 2 ───
+  async function fetchDatosR2() {
     let camposQuery = supabase.from('campos').select('id, ciudad, pais, fecha_inicio').eq('estado', 'activo')
     if (filtroCampoColportores) camposQuery = camposQuery.eq('id', filtroCampoColportores)
     const { data: camposData } = await camposQuery
-    if (!camposData?.length) { setGenerando(null); return }
+    if (!camposData?.length) return { camposData: [], equipos: {} }
 
-    const { doc, addFooter, startY } = basePDF('Colportores en Campo', `Campos activos: ${camposData.length}`, logoBase64, logoHeaderBase64, logoAspect)
-    let currentY = startY
-
+    const equipos: Record<string, any[]> = {}
     for (const campo of camposData) {
       const { data: equipo } = await supabase
         .from('campo_colportores')
         .select('*, colportores(nombre, tipo_documento, numero_documento, categoria, fecha_nacimiento)')
         .eq('campo_id', campo.id)
         .eq('estado', 'activo')
+      if (equipo?.length) equipos[campo.id] = equipo
+    }
+    return { camposData, equipos }
+  }
 
-      if (!equipo?.length) continue
+  async function reporte2() {
+    setGenerando('r2')
+    const { camposData, equipos } = await fetchDatosR2()
+    if (!camposData.length) { setGenerando(null); return }
 
+    const { doc, addFooter, startY } = basePDF('Colportores en Campo', `Campos activos: ${camposData.length}`, logoBase64, logoHeaderBase64, logoAspect)
+    let currentY = startY
+
+    for (const campo of camposData) {
+      const equipo = equipos[campo.id]
+      if (!equipo) continue
       if (currentY > 220) { doc.addPage(); currentY = 36 }
-
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(13, 31, 69)
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(13, 31, 69)
       doc.text(`Campo en ${campo.ciudad} — ${campo.pais}`, 14, currentY)
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(100, 100, 100)
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 100, 100)
       doc.text(`Inicio: ${formatFecha(campo.fecha_inicio)} · ${equipo.length} colportores`, 14, currentY + 5)
-
       autoTable(doc, {
         startY: currentY + 9,
         head: [['Nombre', 'Edad', 'Documento', 'Categoría', 'Ingresó']],
         body: equipo.map((e: any) => [
-          e.colportores.nombre,
-          calcularEdad(e.colportores.fecha_nacimiento),
+          e.colportores.nombre, calcularEdad(e.colportores.fecha_nacimiento),
           `${e.colportores.tipo_documento} ${e.colportores.numero_documento}`,
-          e.colportores.categoria,
-          formatFecha(e.fecha_ingreso)
+          e.colportores.categoria, formatFecha(e.fecha_ingreso)
         ]),
         styles: { fontSize: 8, cellPadding: 3 },
         headStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [247, 249, 253] },
         margin: { top: 34 },
       })
-
       currentY = (doc as any).lastAutoTable.finalY + 14
     }
 
@@ -230,30 +271,46 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
     setGenerando(null)
   }
 
-  // ─── REPORTE 3: Misioneros en el exterior ───
-  async function reporte3() {
-    setGenerando('r3')
+  async function verR2() {
+    setPrevisualizando('r2')
+    const { camposData, equipos } = await fetchDatosR2()
+    const secciones = camposData
+      .filter(campo => equipos[campo.id])
+      .map(campo => ({
+        titulo: `Campo en ${campo.ciudad} — ${campo.pais} · Inicio: ${formatFecha(campo.fecha_inicio)}`,
+        columnas: ['Nombre', 'Edad', 'Documento', 'Categoría', 'Ingresó'],
+        filas: equipos[campo.id].map((e: any) => [
+          e.colportores.nombre, calcularEdad(e.colportores.fecha_nacimiento),
+          `${e.colportores.tipo_documento} ${e.colportores.numero_documento}`,
+          e.colportores.categoria, formatFecha(e.fecha_ingreso)
+        ])
+      }))
+    setPreview({ titulo: 'Colportores en Campo', subtitulo: `Campos activos: ${camposData.length}`, secciones })
+    setPrevisualizando(null)
+  }
+
+  // ─── REPORTE 3 ───
+  async function fetchDatosR3() {
     const { data: enExterior } = await supabase
       .from('campo_colportores')
       .select('*, colportores(nombre, tipo_documento, numero_documento, categoria, fecha_nacimiento, tiene_pasaporte), campos(ciudad, pais)')
       .eq('estado', 'activo')
-
-    const exterior = (enExterior || [])
+    return (enExterior || [])
       .filter((e: any) => e.campos?.pais && !e.campos.pais.toLowerCase().includes('colombia'))
       .sort((a: any, b: any) => a.colportores.nombre.localeCompare(b.colportores.nombre))
+  }
 
+  async function reporte3() {
+    setGenerando('r3')
+    const exterior = await fetchDatosR3()
     const { doc, addFooter, startY } = basePDF('Misioneros en el Exterior', `${exterior.length} misioneros fuera de Colombia`, logoBase64, logoHeaderBase64, logoAspect)
-
     autoTable(doc, {
       startY,
       head: [['Nombre', 'Edad', 'Documento', 'Categoría', 'Campo actual', 'País', 'Pasaporte']],
       body: exterior.map((e: any) => [
-        e.colportores.nombre,
-        calcularEdad(e.colportores.fecha_nacimiento),
+        e.colportores.nombre, calcularEdad(e.colportores.fecha_nacimiento),
         `${e.colportores.tipo_documento} ${e.colportores.numero_documento}`,
-        e.colportores.categoria,
-        `Campo en ${e.campos.ciudad}`,
-        e.campos.pais,
+        e.colportores.categoria, `Campo en ${e.campos.ciudad}`, e.campos.pais,
         e.colportores.tiene_pasaporte ? 'Sí' : 'No'
       ]),
       styles: { fontSize: 8, cellPadding: 3 },
@@ -261,50 +318,65 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       alternateRowStyles: { fillColor: [247, 249, 253] },
       margin: { top: 34 },
     })
-
     addFooter()
     doc.save('misioneros-exterior.pdf')
     setGenerando(null)
   }
 
-  // ─── REPORTE 4: Siembra por período ───
-  async function reporte4() {
-    if (!filtroSiembraInicio || !filtroSiembraFin) return
-    setGenerando('r4')
+  async function verR3() {
+    setPrevisualizando('r3')
+    const exterior = await fetchDatosR3()
+    setPreview({
+      titulo: 'Misioneros en el Exterior',
+      subtitulo: `${exterior.length} misioneros fuera de Colombia`,
+      secciones: [{
+        columnas: ['Nombre', 'Edad', 'Documento', 'Categoría', 'Campo actual', 'País', 'Pasaporte'],
+        filas: exterior.map((e: any) => [
+          e.colportores.nombre, calcularEdad(e.colportores.fecha_nacimiento),
+          `${e.colportores.tipo_documento} ${e.colportores.numero_documento}`,
+          e.colportores.categoria, `Campo en ${e.campos.ciudad}`, e.campos.pais,
+          e.colportores.tiene_pasaporte ? 'Sí' : 'No'
+        ])
+      }]
+    })
+    setPrevisualizando(null)
+  }
 
+  // ─── REPORTE 4 ───
+  async function fetchDatosR4() {
+    if (!filtroSiembraInicio || !filtroSiembraFin) return null
     let query = supabase
       .from('siembra')
       .select('*, colportores(nombre, categoria), campos(ciudad, pais)')
       .gte('fecha', filtroSiembraInicio)
       .lte('fecha', filtroSiembraFin)
       .order('fecha')
-
     if (filtroSiembraTipo === 'colportor' && filtroSiembraColportor)
       query = query.eq('colportor_id', filtroSiembraColportor)
     if (filtroSiembraTipo === 'campo' && filtroSiembraCampo)
       query = query.eq('campo_id', filtroSiembraCampo)
-
     const { data } = await query
     let registros = data || []
-
     if (filtroSiembraTipo === 'categoria' && filtroSiembraCategoria)
       registros = registros.filter((r: any) => r.colportores?.categoria === filtroSiembraCategoria)
+    return registros
+  }
 
+  async function reporte4() {
+    if (!filtroSiembraInicio || !filtroSiembraFin) return
+    setGenerando('r4')
+    const registros = await fetchDatosR4()
+    if (!registros) { setGenerando(null); return }
     const totalKits = registros.reduce((a: number, r: any) => a + r.kits_vendidos, 0)
     const totalIVPT = registros.reduce((a: number, r: any) => a + r.seguidores_ivpt, 0)
     const subtitulo = `${formatFecha(filtroSiembraInicio)} — ${formatFecha(filtroSiembraFin)} · ${registros.length} registros · ${totalKits} kits`
     const { doc, addFooter, startY } = basePDF('Reporte de Siembra', subtitulo, logoBase64, logoHeaderBase64, logoAspect)
-
     autoTable(doc, {
       startY,
       head: [['Fecha', 'Colportor', 'Categoría', 'Campo', 'Kits', 'Seg. IVPT']],
       body: registros.map((r: any) => [
-        formatFecha(r.fecha),
-        r.colportores?.nombre || '—',
-        r.colportores?.categoria || '—',
-        r.campos ? `Campo en ${r.campos.ciudad}` : '—',
-        r.kits_vendidos,
-        r.seguidores_ivpt
+        formatFecha(r.fecha), r.colportores?.nombre || '—', r.colportores?.categoria || '—',
+        r.campos ? `Campo en ${r.campos.ciudad}` : '—', r.kits_vendidos, r.seguidores_ivpt
       ]),
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: { fillColor: [13, 31, 69], textColor: 255, fontStyle: 'bold' },
@@ -313,30 +385,52 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       footStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
       margin: { top: 34 },
     })
-
     addFooter()
     doc.save(`siembra-${filtroSiembraInicio}-${filtroSiembraFin}.pdf`)
     setGenerando(null)
   }
 
-  // ─── REPORTE 5: Seguidores IVPT ───
-  async function reporte5() {
-    setGenerando('r5')
+  async function verR4() {
+    if (!filtroSiembraInicio || !filtroSiembraFin) return
+    setPrevisualizando('r4')
+    const registros = await fetchDatosR4()
+    if (!registros) { setPrevisualizando(null); return }
+    const totalKits = registros.reduce((a: number, r: any) => a + r.kits_vendidos, 0)
+    const totalIVPT = registros.reduce((a: number, r: any) => a + r.seguidores_ivpt, 0)
+    setPreview({
+      titulo: 'Reporte de Siembra',
+      subtitulo: `${formatFecha(filtroSiembraInicio)} — ${formatFecha(filtroSiembraFin)} · ${registros.length} registros · ${totalKits} kits`,
+      secciones: [{
+        columnas: ['Fecha', 'Colportor', 'Categoría', 'Campo', 'Kits', 'Seg. IVPT'],
+        filas: registros.map((r: any) => [
+          formatFecha(r.fecha), r.colportores?.nombre || '—', r.colportores?.categoria || '—',
+          r.campos ? `Campo en ${r.campos.ciudad}` : '—', r.kits_vendidos, r.seguidores_ivpt
+        ]),
+        totales: ['', '', '', 'TOTAL', totalKits, totalIVPT]
+      }]
+    })
+    setPrevisualizando(null)
+  }
+
+  // ─── REPORTE 5 ───
+  async function fetchDatosR5() {
     const { data } = await supabase
       .from('siembra')
       .select('colportor_id, seguidores_ivpt, colportores(nombre, categoria)')
-
     const agrupado: Record<string, { nombre: string; categoria: string; total: number }> = {}
     for (const r of data || []) {
       const id = r.colportor_id
       if (!agrupado[id]) agrupado[id] = { nombre: (r as any).colportores?.nombre || '—', categoria: (r as any).colportores?.categoria || '—', total: 0 }
       agrupado[id].total += r.seguidores_ivpt
     }
+    return Object.values(agrupado).sort((a, b) => b.total - a.total)
+  }
 
-    const rows = Object.values(agrupado).sort((a, b) => b.total - a.total)
+  async function reporte5() {
+    setGenerando('r5')
+    const rows = await fetchDatosR5()
     const totalIVPT = rows.reduce((a, r) => a + r.total, 0)
     const { doc, addFooter, startY } = basePDF('Reporte de Seguidores IVPT', `Total acumulado: ${totalIVPT} seguidores`, logoBase64, logoHeaderBase64, logoAspect)
-
     autoTable(doc, {
       startY,
       head: [['#', 'Colportor', 'Categoría', 'Total seguidores IVPT']],
@@ -349,38 +443,53 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       footStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
       margin: { top: 34 },
     })
-
     addFooter()
     doc.save('seguidores-ivpt.pdf')
     setGenerando(null)
   }
 
-  // ─── REPORTE 6: Resumen general ───
-  async function reporte6() {
-    setGenerando('r6')
+  async function verR5() {
+    setPrevisualizando('r5')
+    const rows = await fetchDatosR5()
+    const totalIVPT = rows.reduce((a, r) => a + r.total, 0)
+    setPreview({
+      titulo: 'Seguidores IVPT',
+      subtitulo: `Total acumulado: ${totalIVPT} seguidores`,
+      secciones: [{
+        columnas: ['#', 'Colportor', 'Categoría', 'Total seguidores IVPT'],
+        filas: rows.map((r, i) => [i + 1, r.nombre, r.categoria, r.total]),
+        totales: ['', '', 'TOTAL', totalIVPT]
+      }]
+    })
+    setPrevisualizando(null)
+  }
+
+  // ─── REPORTE 6 ───
+  async function fetchDatosR6() {
     const [{ data: cols }, { data: camp }, { data: siem }] = await Promise.all([
       supabase.from('colportores').select('id, categoria, ubicacion_actual, tiene_pasaporte'),
       supabase.from('campos').select('id, ciudad, pais, estado'),
       supabase.from('siembra').select('kits_vendidos, seguidores_ivpt')
     ])
-
     const totalCols = cols?.length || 0
-    const enCampo = cols?.filter(c => c.ubicacion_actual).length || 0
+    const enCampo = cols?.filter(c => c.ubicacion_actual !== null).length || 0
     const conPasaporte = cols?.filter(c => c.tiene_pasaporte).length || 0
     const camposActivos = camp?.filter(c => c.estado === 'activo').length || 0
     const totalKits = siem?.reduce((a, s) => a + s.kits_vendidos, 0) || 0
     const totalIVPT = siem?.reduce((a, s) => a + s.seguidores_ivpt, 0) || 0
-    const categorias = ['CDA INTEGRAL', 'CEPEVISTA', 'COLPORTOR', 'PAC']
+    const categorias = ['CDA INTEGRAL', 'CEPEVISTA', 'EJERCITO CELESTIAL', 'COLPORTOR', 'PAC']
     const porCategoria = categorias.map(cat => [cat, cols?.filter(c => c.categoria === cat).length || 0])
+    return { totalCols, enCampo, conPasaporte, camposActivos, totalKits, totalIVPT, porCategoria, campTotal: camp?.length || 0 }
+  }
 
+  async function reporte6() {
+    setGenerando('r6')
+    const { totalCols, enCampo, conPasaporte, camposActivos, totalKits, totalIVPT, porCategoria, campTotal } = await fetchDatosR6()
     const { doc, addFooter, startY } = basePDF('Resumen General CEPEV', `Generado el ${new Date().toLocaleDateString('es-CO')}`, logoBase64, logoHeaderBase64, logoAspect)
     let y = startY
 
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(13, 31, 69)
-    doc.text('Totales Generales', 14, y)
-    y += 6
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(13, 31, 69)
+    doc.text('Totales Generales', 14, y); y += 6
 
     autoTable(doc, {
       startY: y,
@@ -391,7 +500,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
         ['Misioneros sin campo', totalCols - enCampo],
         ['Misioneros con pasaporte', conPasaporte],
         ['Campos activos', camposActivos],
-        ['Campos totales', camp?.length || 0],
+        ['Campos totales', campTotal],
         ['Kits sembrados (histórico)', totalKits],
         ['Seguidores IVPT (histórico)', totalIVPT],
       ],
@@ -403,18 +512,14 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
     })
 
     y = (doc as any).lastAutoTable.finalY + 12
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(13, 31, 69)
-    doc.text('Distribución por Categoría', 14, y)
-    y += 6
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(13, 31, 69)
+    doc.text('Distribución por Categoría', 14, y); y += 6
 
     autoTable(doc, {
       startY: y,
       head: [['Categoría', 'Cantidad', '% del total']],
       body: porCategoria.map(([cat, count]) => [
-        cat,
-        count,
+        cat, count,
         totalCols > 0 ? `${Math.round((count as number / totalCols) * 100)}%` : '0%'
       ]),
       styles: { fontSize: 9, cellPadding: 4 },
@@ -429,29 +534,65 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
     setGenerando(null)
   }
 
-  // ─── REPORTE 7: Historial por colportor ───
-  async function reporte7() {
-    if (!filtroSiembraColportor) return
-    setGenerando('r7')
+  async function verR6() {
+    setPrevisualizando('r6')
+    const { totalCols, enCampo, conPasaporte, camposActivos, totalKits, totalIVPT, porCategoria, campTotal } = await fetchDatosR6()
+    setPreview({
+      titulo: 'Resumen General CEPEV',
+      subtitulo: `Generado el ${new Date().toLocaleDateString('es-CO')}`,
+      secciones: [
+        {
+          titulo: 'Totales Generales',
+          columnas: ['Indicador', 'Valor'],
+          filas: [
+            ['Total de misioneros', totalCols],
+            ['Misioneros en campo actualmente', enCampo],
+            ['Misioneros sin campo', totalCols - enCampo],
+            ['Misioneros con pasaporte', conPasaporte],
+            ['Campos activos', camposActivos],
+            ['Campos totales', campTotal],
+            ['Kits sembrados (histórico)', totalKits],
+            ['Seguidores IVPT (histórico)', totalIVPT],
+          ]
+        },
+        {
+          titulo: 'Distribución por Categoría',
+          columnas: ['Categoría', 'Cantidad', '% del total'],
+          filas: porCategoria.map(([cat, count]) => [
+            cat, count,
+            totalCols > 0 ? `${Math.round((count as number / totalCols) * 100)}%` : '0%'
+          ])
+        }
+      ]
+    })
+    setPrevisualizando(null)
+  }
+
+  // ─── REPORTE 7 ───
+  async function fetchDatosR7() {
     const colportor = colportores.find(c => c.id === filtroSiembraColportor)
     const { data } = await supabase
       .from('campo_colportores')
       .select('*, campos(ciudad, pais, fecha_inicio)')
       .eq('colportor_id', filtroSiembraColportor)
       .order('fecha_ingreso', { ascending: false })
+    return { colportor, data: data || [] }
+  }
 
+  async function reporte7() {
+    if (!filtroSiembraColportor) return
+    setGenerando('r7')
+    const { colportor, data } = await fetchDatosR7()
     const { doc, addFooter, startY } = basePDF(
       'Historial de Campos',
-      `Colportor: ${colportor?.nombre || '—'} · ${data?.length || 0} participaciones`,
+      `Colportor: ${colportor?.nombre || '—'} · ${data.length} participaciones`,
       logoBase64, logoHeaderBase64, logoAspect
     )
-
     autoTable(doc, {
       startY,
       head: [['Campo', 'País', 'Ingresó', 'Retiró', 'Estado']],
-      body: (data || []).map((e: any) => [
-        `Campo en ${e.campos?.ciudad || '—'}`,
-        e.campos?.pais || '—',
+      body: data.map((e: any) => [
+        `Campo en ${e.campos?.ciudad || '—'}`, e.campos?.pais || '—',
         formatFecha(e.fecha_ingreso),
         e.fecha_retiro ? formatFecha(e.fecha_retiro) : '—',
         e.estado === 'activo' ? 'Activo' : 'Retirado'
@@ -461,68 +602,103 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       alternateRowStyles: { fillColor: [247, 249, 253] },
       margin: { top: 34 },
     })
-
     addFooter()
     doc.save(`historial-${colportor?.nombre?.toLowerCase().replace(/ /g, '-') || 'colportor'}.pdf`)
     setGenerando(null)
   }
 
-  // ─── REPORTE 8: Sin campo activo ───
-  async function reporte8() {
-    setGenerando('r8')
+  async function verR7() {
+    if (!filtroSiembraColportor) return
+    setPrevisualizando('r7')
+    const { colportor, data } = await fetchDatosR7()
+    setPreview({
+      titulo: 'Historial de Campos',
+      subtitulo: `Colportor: ${colportor?.nombre || '—'} · ${data.length} participaciones`,
+      secciones: [{
+        columnas: ['Campo', 'País', 'Ingresó', 'Retiró', 'Estado'],
+        filas: data.map((e: any) => [
+          `Campo en ${e.campos?.ciudad || '—'}`, e.campos?.pais || '—',
+          formatFecha(e.fecha_ingreso),
+          e.fecha_retiro ? formatFecha(e.fecha_retiro) : '—',
+          e.estado === 'activo' ? 'Activo' : 'Retirado'
+        ])
+      }]
+    })
+    setPrevisualizando(null)
+  }
+
+  // ─── REPORTE 8 ───
+  async function fetchDatosR8() {
     const { data } = await supabase
       .from('colportores')
-      .select('*')
+      .select('*, categoria')
       .is('ubicacion_actual', null)
       .order('nombre')
+    return data || []
+  }
 
-    const { doc, addFooter, startY } = basePDF('Misioneros Sin Campo Activo', `${data?.length || 0} misioneros disponibles`, logoBase64, logoHeaderBase64, logoAspect)
-
+  async function reporte8() {
+    setGenerando('r8')
+    const data = await fetchDatosR8()
+    const { doc, addFooter, startY } = basePDF('Misioneros Sin Campo Activo', `${data.length} misioneros disponibles`, logoBase64, logoHeaderBase64, logoAspect)
     autoTable(doc, {
       startY,
       head: [['Nombre', 'Categoría', 'Documento', 'Localidad', 'Pasaporte']],
-      body: (data || []).map(c => [
-        c.nombre,
-        c.categoria,
-        `${c.tipo_documento} ${c.numero_documento}`,
-        c.localidad || '—',
-        c.tiene_pasaporte ? 'Sí' : 'No'
+      body: data.map(c => [
+        c.nombre, c.categoria, `${c.tipo_documento} ${c.numero_documento}`,
+        c.localidad || '—', c.tiene_pasaporte ? 'Sí' : 'No'
       ]),
       styles: { fontSize: 8, cellPadding: 3 },
       headStyles: { fillColor: [13, 31, 69], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [247, 249, 253] },
       margin: { top: 34 },
     })
-
     addFooter()
     doc.save('misioneros-sin-campo.pdf')
     setGenerando(null)
   }
 
-  // ─── REPORTE 9: Ranking de siembra ───
-  async function reporte9() {
-    if (!filtroRankingInicio || !filtroRankingFin) return
-    setGenerando('r9')
+  async function verR8() {
+    setPrevisualizando('r8')
+    const data = await fetchDatosR8()
+    setPreview({
+      titulo: 'Misioneros Sin Campo Activo',
+      subtitulo: `${data.length} misioneros disponibles`,
+      secciones: [{
+        columnas: ['Nombre', 'Categoría', 'Documento', 'Localidad', 'Pasaporte'],
+        filas: data.map(c => [
+          c.nombre, c.categoria, `${c.tipo_documento} ${c.numero_documento}`,
+          c.localidad || '—', c.tiene_pasaporte ? 'Sí' : 'No'
+        ])
+      }]
+    })
+    setPrevisualizando(null)
+  }
 
+  // ─── REPORTE 9 ───
+  async function fetchDatosR9() {
     const { data } = await supabase
       .from('siembra')
       .select('colportor_id, kits_vendidos, colportores(nombre, categoria)')
       .gte('fecha', filtroRankingInicio)
       .lte('fecha', filtroRankingFin)
-
     const agrupado: Record<string, { nombre: string; categoria: string; kits: number }> = {}
     for (const r of data || []) {
       if (!agrupado[r.colportor_id]) agrupado[r.colportor_id] = { nombre: (r as any).colportores?.nombre || '—', categoria: (r as any).colportores?.categoria || '—', kits: 0 }
       agrupado[r.colportor_id].kits += r.kits_vendidos
     }
+    return Object.values(agrupado).sort((a, b) => b.kits - a.kits)
+  }
 
-    const rows = Object.values(agrupado).sort((a, b) => b.kits - a.kits)
+  async function reporte9() {
+    if (!filtroRankingInicio || !filtroRankingFin) return
+    setGenerando('r9')
+    const rows = await fetchDatosR9()
     const { doc, addFooter, startY } = basePDF(
       'Ranking de Siembra',
       `${formatFecha(filtroRankingInicio)} — ${formatFecha(filtroRankingFin)}`,
       logoBase64, logoHeaderBase64, logoAspect
     )
-
     autoTable(doc, {
       startY,
       head: [['#', 'Colportor', 'Categoría', 'Kits sembrados']],
@@ -542,10 +718,26 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       footStyles: { fillColor: [245, 166, 35], textColor: [13, 31, 69], fontStyle: 'bold' },
       margin: { top: 34 },
     })
-
     addFooter()
     doc.save(`ranking-siembra-${filtroRankingInicio}-${filtroRankingFin}.pdf`)
     setGenerando(null)
+  }
+
+  async function verR9() {
+    if (!filtroRankingInicio || !filtroRankingFin) return
+    setPrevisualizando('r9')
+    const rows = await fetchDatosR9()
+    const total = rows.reduce((a, r) => a + r.kits, 0)
+    setPreview({
+      titulo: 'Ranking de Siembra',
+      subtitulo: `${formatFecha(filtroRankingInicio)} — ${formatFecha(filtroRankingFin)}`,
+      secciones: [{
+        columnas: ['#', 'Colportor', 'Categoría', 'Kits sembrados'],
+        filas: rows.map((r, i) => [i + 1, r.nombre, r.categoria, r.kits]),
+        totales: ['', '', 'TOTAL', total]
+      }]
+    })
+    setPrevisualizando(null)
   }
 
   const reportes = [
@@ -554,9 +746,9 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
       icono: '📑', filtro: (
         <select className="rp-select" value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value as Categoria)}>
           <option value="">Todos los Equipos</option>
-          {['CDA INTEGRAL', 'CEPEVISTA', 'COLPORTOR', 'PAC'].map(c => <option key={c} value={c}>{c}</option>)}
+          {['CDA INTEGRAL', 'CEPEVISTA', 'EJERCITO CELESTIAL', 'COLPORTOR', 'PAC'].map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-      ), action: reporte1
+      ), action: reporte1, ver: verR1
     },
     {
       id: 'r2', titulo: 'Colportores en Campo', desc: 'Tabla por campo con los misioneros activos.',
@@ -565,11 +757,11 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
           <option value="">Todos los campos</option>
           {campos.filter(c => c.estado === 'activo').map(c => <option key={c.id} value={c.id}>Campo en {c.ciudad}</option>)}
         </select>
-      ), action: reporte2
+      ), action: reporte2, ver: verR2
     },
     {
       id: 'r3', titulo: 'Misioneros en el Exterior', desc: 'Todos los misioneros activos en campos en el exterior.',
-      icono: '📑', filtro: null, action: reporte3
+      icono: '📑', filtro: null, action: reporte3, ver: verR3
     },
     {
       id: 'r4', titulo: 'Siembra', desc: 'Registros de siembra filtrados por fecha, persona, campo o equipo.',
@@ -606,20 +798,20 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
             {filtroSiembraTipo === 'categoria' && (
               <select className="rp-select" value={filtroSiembraCategoria} onChange={e => setFiltroSiembraCategoria(e.target.value as Categoria)}>
                 <option value="">Todas las categorías</option>
-                {['CDA INTEGRAL', 'CEPEVISTA', 'COLPORTOR', 'PAC'].map(c => <option key={c} value={c}>{c}</option>)}
+                {['CDA INTEGRAL', 'CEPEVISTA', 'EJERCITO CELESTIAL', 'COLPORTOR', 'PAC'].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
           </div>
         </div>
-      ), action: reporte4
+      ), action: reporte4, ver: verR4
     },
     {
       id: 'r5', titulo: 'Seguidores IVPT', desc: 'Total de seguidores de Instagram del IVPT conseguidos por cada misionero.',
-      icono: '📑', filtro: null, action: reporte5
+      icono: '📑', filtro: null, action: reporte5, ver: verR5
     },
     {
       id: 'r6', titulo: 'Resumen General', desc: 'Documento de informe con totales, distribución por categoría y estadísticas globales.',
-      icono: '📑', filtro: null, action: reporte6
+      icono: '📑', filtro: null, action: reporte6, ver: verR6
     },
     {
       id: 'r7', titulo: 'Historial por Colportor', desc: 'Todos los campos por los que ha pasado un misionero con fechas.',
@@ -628,11 +820,11 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
           <option value="">Selecciona un colportor</option>
           {colportores.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
-      ), action: reporte7
+      ), action: reporte7, ver: verR7
     },
     {
       id: 'r8', titulo: 'Misioneros Sin Campo', desc: 'Lista de misioneros que no están asignados a ningún campo actualmente.',
-      icono: '📑', filtro: null, action: reporte8 
+      icono: '📑', filtro: null, action: reporte8, ver: verR8
     },
     {
       id: 'r9', titulo: 'Ranking de Siembra', desc: 'Top de misioneros por kits sembrados en un período elegido.',
@@ -647,7 +839,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
             <input className="rp-input" type="date" value={filtroRankingFin} onChange={e => setFiltroRankingFin(e.target.value)} />
           </div>
         </div>
-      ), action: reporte9
+      ), action: reporte9, ver: verR9
     },
   ]
 
@@ -672,21 +864,83 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
         .rp-filter-label { font-size: 10px; font-weight: 700; color: #4A6080; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 4px; }
         .rp-select { width: 100%; padding: 7px 10px; border: 1.5px solid #E4E8F0; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: #0D1F45; background: #F7F9FD; outline: none; }
         .rp-input { width: 100%; padding: 7px 10px; border: 1.5px solid #E4E8F0; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: #0D1F45; background: #F7F9FD; outline: none; box-sizing: border-box; }
-        .rp-card-footer { padding: 0.8rem 1.2rem; border-top: 1.5px solid #F0F3FA; margin-top: auto; }
-        .rp-download-btn { width: 100%; padding: 9px; border: none; border-radius: 8px; background: #0D1F45; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 7px; }
+        .rp-card-footer { padding: 0.8rem 1.2rem; border-top: 1.5px solid #F0F3FA; margin-top: auto; display: flex; gap: 8px; }
+        .rp-download-btn { flex: 1; padding: 9px; border: none; border-radius: 8px; background: #0D1F45; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 7px; }
         .rp-download-btn:hover { background: #1A3A6B; }
         .rp-download-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .rp-download-btn.loading { background: #F5A623; color: #0D1F45; }
+        .rp-view-btn { flex: 1; padding: 9px; border: 1.5px solid #E4E8F0; border-radius: 8px; background: #F7F9FD; color: #0D1F45; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 7px; }
+        .rp-view-btn:hover { background: #EEF2FA; border-color: #2B5BA8; color: #2B5BA8; }
+        .rp-view-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .rp-view-btn.loading { background: #F5A623; border-color: #F5A623; color: #0D1F45; }
+
+        /* Modal de vista previa */
+        .rp-modal-overlay { position: fixed; inset: 0; background: rgba(13,31,69,0.45); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 24px; overflow-y: auto; }
+        .rp-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 900px; min-height: 200px; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(13,31,69,0.25); margin: auto; }
+        .rp-modal-header { background: #0D1F45; border-radius: 16px 16px 0 0; padding: 1.2rem 1.5rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 3px solid #F5A623; }
+        .rp-modal-title { font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 700; color: #F5A623; }
+        .rp-modal-sub { font-size: 12px; color: #8AABDA; margin-top: 3px; }
+        .rp-modal-close { background: none; border: none; color: #8AABDA; font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 6px; transition: all 0.15s; flex-shrink: 0; }
+        .rp-modal-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .rp-modal-body { padding: 1.2rem 1.5rem; overflow-x: auto; }
+        .rp-seccion-titulo { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 700; color: #0D1F45; margin: 1rem 0 0.5rem; padding-bottom: 4px; border-bottom: 2px solid #F5A623; display: inline-block; }
+        .rp-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 0.5rem; }
+        .rp-table th { background: #0D1F45; color: #fff; padding: 8px 10px; text-align: left; font-weight: 700; font-size: 11px; letter-spacing: 0.04em; white-space: nowrap; }
+        .rp-table td { padding: 7px 10px; border-bottom: 1px solid #F0F3FA; color: #1A2C4A; }
+        .rp-table tr:nth-child(even) td { background: #F7F9FD; }
+        .rp-table tr:hover td { background: #EEF2FA; }
+        .rp-table tfoot td { background: #F5A623; color: #0D1F45; font-weight: 700; padding: 8px 10px; }
+
         @media (max-width: 768px) {
           .rp-grid { grid-template-columns: 1fr; }
           .rp-content { padding: 1rem; }
+          .rp-modal-overlay { padding: 0; }
+          .rp-modal { border-radius: 0; min-height: 100vh; }
+          .rp-card-footer { flex-direction: column; }
         }
       `}</style>
+
+      {/* Modal de vista previa */}
+      {preview && (
+        <div className="rp-modal-overlay" onClick={() => setPreview(null)}>
+          <div className="rp-modal" onClick={e => e.stopPropagation()}>
+            <div className="rp-modal-header">
+              <div>
+                <div className="rp-modal-title">{preview.titulo}</div>
+                {preview.subtitulo && <div className="rp-modal-sub">{preview.subtitulo}</div>}
+              </div>
+              <button className="rp-modal-close" onClick={() => setPreview(null)}>✕</button>
+            </div>
+            <div className="rp-modal-body">
+              {preview.secciones.map((seccion, si) => (
+                <div key={si}>
+                  {seccion.titulo && <div className="rp-seccion-titulo">{seccion.titulo}</div>}
+                  <table className="rp-table">
+                    <thead>
+                      <tr>{seccion.columnas.map((col, ci) => <th key={ci}>{col}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {seccion.filas.map((fila, fi) => (
+                        <tr key={fi}>{fila.map((cel, ci) => <td key={ci}>{cel}</td>)}</tr>
+                      ))}
+                    </tbody>
+                    {seccion.totales && (
+                      <tfoot>
+                        <tr>{seccion.totales.map((cel, ci) => <td key={ci}>{cel}</td>)}</tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rp-wrap">
         <div className="rp-topbar">
           <div className="rp-topbar-title">Reportes</div>
-          <div className="rp-topbar-sub">{reportes.length} reportes disponibles · Descarga en PDF</div>
+          <div className="rp-topbar-sub">{reportes.length} reportes disponibles · Ver en pantalla o descargar en PDF</div>
         </div>
         <div className="rp-content">
           <div className="rp-grid">
@@ -702,9 +956,26 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
                 {r.filtro && <div className="rp-filtros">{r.filtro}</div>}
                 <div className="rp-card-footer">
                   <button
+                    className={`rp-view-btn ${previsualizando === r.id ? 'loading' : ''}`}
+                    onClick={r.ver}
+                    disabled={generando !== null || previsualizando !== null}
+                  >
+                    {previsualizando === r.id ? (
+                      <>⏳ Cargando...</>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <ellipse cx="7" cy="7" rx="6" ry="4.5" stroke="currentColor" strokeWidth="1.5"/>
+                          <circle cx="7" cy="7" r="1.8" fill="currentColor"/>
+                        </svg>
+                        Ver
+                      </>
+                    )}
+                  </button>
+                  <button
                     className={`rp-download-btn ${generando === r.id ? 'loading' : ''}`}
                     onClick={r.action}
-                    disabled={generando !== null}
+                    disabled={generando !== null || previsualizando !== null}
                   >
                     {generando === r.id ? (
                       <>⏳ Generando...</>
@@ -713,7 +984,7 @@ function basePDF(titulo: string, subtitulo?: string, logo?: string, logoHeader?:
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                           <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        Descargar PDF
+                        PDF
                       </>
                     )}
                   </button>

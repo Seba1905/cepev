@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type User = { id: string; name: string; phone: string; role: string };
@@ -97,7 +97,7 @@ export default function CamposPanel({ user }: { user: User }) {
   );
 
   // Filtro por país
-  const [filtroPais, setFiltroPais] = useState<"todos" | "colombia" | "exterior">("todos");
+  const [filtroPais, setFiltroPais] = useState<string>("todos");
 
   // Confirmaciones
   const [confirmarCierre, setConfirmarCierre] = useState<string | null>(null);
@@ -445,13 +445,419 @@ export default function CamposPanel({ user }: { user: User }) {
       .replace(/[\u0300-\u036f]/g, "");
   }
 
+  // Países únicos registrados en campos
+  const paisesUnicos = [
+    ...new Map(
+      campos
+        .map((c) => c.pais)
+        .filter(Boolean)
+        .map((p) => [normalizarTexto(p), p] as [string, string])
+    ).values(),
+  ].sort((a, b) => normalizarTexto(a).localeCompare(normalizarTexto(b)));
+
+  // Todos los países del mundo: nombre en español → ISO 2 letras (flagcdn.com)
+  const PAISES_LISTA: { nombre: string; iso: string }[] = [
+    // América del Sur
+    { nombre: "Argentina", iso: "ar" },
+    { nombre: "Bolivia", iso: "bo" },
+    { nombre: "Brasil", iso: "br" },
+    { nombre: "Chile", iso: "cl" },
+    { nombre: "Colombia", iso: "co" },
+    { nombre: "Ecuador", iso: "ec" },
+    { nombre: "Guyana", iso: "gy" },
+    { nombre: "Paraguay", iso: "py" },
+    { nombre: "Perú", iso: "pe" },
+    { nombre: "Surinam", iso: "sr" },
+    { nombre: "Trinidad y Tobago", iso: "tt" },
+    { nombre: "Uruguay", iso: "uy" },
+    { nombre: "Venezuela", iso: "ve" },
+    // América Central y Caribe
+    { nombre: "Antigua y Barbuda", iso: "ag" },
+    { nombre: "Bahamas", iso: "bs" },
+    { nombre: "Barbados", iso: "bb" },
+    { nombre: "Belice", iso: "bz" },
+    { nombre: "Costa Rica", iso: "cr" },
+    { nombre: "Cuba", iso: "cu" },
+    { nombre: "Dominica", iso: "dm" },
+    { nombre: "El Salvador", iso: "sv" },
+    { nombre: "Granada", iso: "gd" },
+    { nombre: "Guatemala", iso: "gt" },
+    { nombre: "Haití", iso: "ht" },
+    { nombre: "Honduras", iso: "hn" },
+    { nombre: "Jamaica", iso: "jm" },
+    { nombre: "México", iso: "mx" },
+    { nombre: "Nicaragua", iso: "ni" },
+    { nombre: "Panamá", iso: "pa" },
+    { nombre: "Puerto Rico", iso: "pr" },
+    { nombre: "República Dominicana", iso: "do" },
+    { nombre: "San Cristóbal y Nieves", iso: "kn" },
+    { nombre: "San Vicente y las Granadinas", iso: "vc" },
+    { nombre: "Santa Lucía", iso: "lc" },
+    // América del Norte
+    { nombre: "Canadá", iso: "ca" },
+    { nombre: "Estados Unidos", iso: "us" },
+    // Europa
+    { nombre: "Albania", iso: "al" },
+    { nombre: "Alemania", iso: "de" },
+    { nombre: "Andorra", iso: "ad" },
+    { nombre: "Armenia", iso: "am" },
+    { nombre: "Austria", iso: "at" },
+    { nombre: "Azerbaiyán", iso: "az" },
+    { nombre: "Bélgica", iso: "be" },
+    { nombre: "Bielorrusia", iso: "by" },
+    { nombre: "Bosnia y Herzegovina", iso: "ba" },
+    { nombre: "Bulgaria", iso: "bg" },
+    { nombre: "Chipre", iso: "cy" },
+    { nombre: "Croacia", iso: "hr" },
+    { nombre: "Dinamarca", iso: "dk" },
+    { nombre: "Eslovaquia", iso: "sk" },
+    { nombre: "Eslovenia", iso: "si" },
+    { nombre: "España", iso: "es" },
+    { nombre: "Estonia", iso: "ee" },
+    { nombre: "Finlandia", iso: "fi" },
+    { nombre: "Francia", iso: "fr" },
+    { nombre: "Georgia", iso: "ge" },
+    { nombre: "Grecia", iso: "gr" },
+    { nombre: "Hungría", iso: "hu" },
+    { nombre: "Irlanda", iso: "ie" },
+    { nombre: "Islandia", iso: "is" },
+    { nombre: "Italia", iso: "it" },
+    { nombre: "Kazajistán", iso: "kz" },
+    { nombre: "Kosovo", iso: "xk" },
+    { nombre: "Letonia", iso: "lv" },
+    { nombre: "Liechtenstein", iso: "li" },
+    { nombre: "Lituania", iso: "lt" },
+    { nombre: "Luxemburgo", iso: "lu" },
+    { nombre: "Macedonia del Norte", iso: "mk" },
+    { nombre: "Malta", iso: "mt" },
+    { nombre: "Moldavia", iso: "md" },
+    { nombre: "Mónaco", iso: "mc" },
+    { nombre: "Montenegro", iso: "me" },
+    { nombre: "Noruega", iso: "no" },
+    { nombre: "Países Bajos", iso: "nl" },
+    { nombre: "Polonia", iso: "pl" },
+    { nombre: "Portugal", iso: "pt" },
+    { nombre: "Reino Unido", iso: "gb" },
+    { nombre: "República Checa", iso: "cz" },
+    { nombre: "Rumanía", iso: "ro" },
+    { nombre: "Rusia", iso: "ru" },
+    { nombre: "San Marino", iso: "sm" },
+    { nombre: "Serbia", iso: "rs" },
+    { nombre: "Suecia", iso: "se" },
+    { nombre: "Suiza", iso: "ch" },
+    { nombre: "Turquía", iso: "tr" },
+    { nombre: "Ucrania", iso: "ua" },
+    { nombre: "Vaticano", iso: "va" },
+    // África
+    { nombre: "Angola", iso: "ao" },
+    { nombre: "Argelia", iso: "dz" },
+    { nombre: "Benín", iso: "bj" },
+    { nombre: "Botsuana", iso: "bw" },
+    { nombre: "Burkina Faso", iso: "bf" },
+    { nombre: "Burundi", iso: "bi" },
+    { nombre: "Cabo Verde", iso: "cv" },
+    { nombre: "Camerún", iso: "cm" },
+    { nombre: "Chad", iso: "td" },
+    { nombre: "Comoras", iso: "km" },
+    { nombre: "Congo", iso: "cg" },
+    { nombre: "Costa de Marfil", iso: "ci" },
+    { nombre: "Djibouti", iso: "dj" },
+    { nombre: "Egipto", iso: "eg" },
+    { nombre: "Eritrea", iso: "er" },
+    { nombre: "Etiopía", iso: "et" },
+    { nombre: "Gabón", iso: "ga" },
+    { nombre: "Gambia", iso: "gm" },
+    { nombre: "Ghana", iso: "gh" },
+    { nombre: "Guinea", iso: "gn" },
+    { nombre: "Guinea Ecuatorial", iso: "gq" },
+    { nombre: "Guinea-Bisáu", iso: "gw" },
+    { nombre: "Kenia", iso: "ke" },
+    { nombre: "Lesoto", iso: "ls" },
+    { nombre: "Liberia", iso: "lr" },
+    { nombre: "Libia", iso: "ly" },
+    { nombre: "Madagascar", iso: "mg" },
+    { nombre: "Malaui", iso: "mw" },
+    { nombre: "Mali", iso: "ml" },
+    { nombre: "Marruecos", iso: "ma" },
+    { nombre: "Mauricio", iso: "mu" },
+    { nombre: "Mauritania", iso: "mr" },
+    { nombre: "Mozambique", iso: "mz" },
+    { nombre: "Namibia", iso: "na" },
+    { nombre: "Níger", iso: "ne" },
+    { nombre: "Nigeria", iso: "ng" },
+    { nombre: "República Centroafricana", iso: "cf" },
+    { nombre: "República del Congo", iso: "cd" },
+    { nombre: "Ruanda", iso: "rw" },
+    { nombre: "Santo Tomé y Príncipe", iso: "st" },
+    { nombre: "Senegal", iso: "sn" },
+    { nombre: "Seychelles", iso: "sc" },
+    { nombre: "Sierra Leona", iso: "sl" },
+    { nombre: "Somalia", iso: "so" },
+    { nombre: "Sudáfrica", iso: "za" },
+    { nombre: "Sudán", iso: "sd" },
+    { nombre: "Sudán del Sur", iso: "ss" },
+    { nombre: "Suazilandia", iso: "sz" },
+    { nombre: "Tanzania", iso: "tz" },
+    { nombre: "Togo", iso: "tg" },
+    { nombre: "Túnez", iso: "tn" },
+    { nombre: "Uganda", iso: "ug" },
+    { nombre: "Yibuti", iso: "dj" },
+    { nombre: "Zambia", iso: "zm" },
+    { nombre: "Zimbabue", iso: "zw" },
+    // Asia
+    { nombre: "Afganistán", iso: "af" },
+    { nombre: "Arabia Saudita", iso: "sa" },
+    { nombre: "Bahréin", iso: "bh" },
+    { nombre: "Bangladés", iso: "bd" },
+    { nombre: "Birmania", iso: "mm" },
+    { nombre: "Brunéi", iso: "bn" },
+    { nombre: "Bután", iso: "bt" },
+    { nombre: "Camboya", iso: "kh" },
+    { nombre: "China", iso: "cn" },
+    { nombre: "Corea del Norte", iso: "kp" },
+    { nombre: "Corea del Sur", iso: "kr" },
+    { nombre: "Emiratos Árabes Unidos", iso: "ae" },
+    { nombre: "Filipinas", iso: "ph" },
+    { nombre: "India", iso: "in" },
+    { nombre: "Indonesia", iso: "id" },
+    { nombre: "Irak", iso: "iq" },
+    { nombre: "Irán", iso: "ir" },
+    { nombre: "Israel", iso: "il" },
+    { nombre: "Japón", iso: "jp" },
+    { nombre: "Jordania", iso: "jo" },
+    { nombre: "Kuwait", iso: "kw" },
+    { nombre: "Kirguistán", iso: "kg" },
+    { nombre: "Laos", iso: "la" },
+    { nombre: "Líbano", iso: "lb" },
+    { nombre: "Malasia", iso: "my" },
+    { nombre: "Maldivas", iso: "mv" },
+    { nombre: "Mongolia", iso: "mn" },
+    { nombre: "Nepal", iso: "np" },
+    { nombre: "Omán", iso: "om" },
+    { nombre: "Pakistán", iso: "pk" },
+    { nombre: "Palestina", iso: "ps" },
+    { nombre: "Qatar", iso: "qa" },
+    { nombre: "Singapur", iso: "sg" },
+    { nombre: "Siria", iso: "sy" },
+    { nombre: "Sri Lanka", iso: "lk" },
+    { nombre: "Tailandia", iso: "th" },
+    { nombre: "Tayikistán", iso: "tj" },
+    { nombre: "Timor Oriental", iso: "tl" },
+    { nombre: "Turkmenistán", iso: "tm" },
+    { nombre: "Uzbekistán", iso: "uz" },
+    { nombre: "Vietnam", iso: "vn" },
+    { nombre: "Yemen", iso: "ye" },
+    // Oceanía
+    { nombre: "Australia", iso: "au" },
+    { nombre: "Fiyi", iso: "fj" },
+    { nombre: "Kiribati", iso: "ki" },
+    { nombre: "Micronesia", iso: "fm" },
+    { nombre: "Nauru", iso: "nr" },
+    { nombre: "Nueva Zelanda", iso: "nz" },
+    { nombre: "Palaos", iso: "pw" },
+    { nombre: "Papúa Nueva Guinea", iso: "pg" },
+    { nombre: "Samoa", iso: "ws" },
+    { nombre: "Islas Salomón", iso: "sb" },
+    { nombre: "Tonga", iso: "to" },
+    { nombre: "Tuvalu", iso: "tv" },
+    { nombre: "Vanuatu", iso: "vu" },
+  ].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
+  // Mapa nombre normalizado → ISO (para banderas en filtros y tarjetas)
+  const PAIS_ISO: Record<string, string> = Object.fromEntries(
+    PAISES_LISTA.map(({ nombre, iso }) => [normalizarTexto(nombre), iso])
+  );
+
+  function getISO(pais: string): string {
+    // Intenta coincidencia exacta normalizada primero, luego parcial
+    const norm = normalizarTexto(pais);
+    if (PAIS_ISO[norm]) return PAIS_ISO[norm];
+    // Búsqueda por coincidencia parcial (por si el nombre del campo fue escrito diferente)
+    const found = Object.entries(PAIS_ISO).find(([k]) => k.includes(norm) || norm.includes(k));
+    return found ? found[1] : "";
+  }
+
+  function getFlagUrl(pais: string): string {
+    const iso = getISO(pais);
+    return iso ? `https://flagcdn.com/24x18/${iso}.png` : "";
+  }
+
+  function getBandera(pais: string): string {
+    const iso = getISO(pais);
+    if (!iso) return "🌍";
+    // Convertir ISO a emoji de bandera (regional indicator symbols)
+    return iso.toUpperCase().split("").map(
+      (c) => String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+    ).join("");
+  }
+
+  // Componente FlagImg para banderas SVG de alta calidad
+  function FlagImg({ pais, size = 20 }: { pais: string; size?: number }) {
+    const url = getFlagUrl(pais);
+    if (!url) return <span style={{ fontSize: size * 0.8 }}>🌍</span>;
+    return (
+      <img
+        src={url}
+        alt={pais}
+        style={{
+          width: size * 1.33,
+          height: size,
+          objectFit: "cover",
+          borderRadius: 2,
+          display: "inline-block",
+          flexShrink: 0,
+          boxShadow: "0 0 0 1px rgba(0,0,0,0.08)",
+        }}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+      />
+    );
+  }
+
+  // CountrySelect: select estilizado con banderas, tipo react-select
+  function CountrySelect({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+  }) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      function handleClick(e: MouseEvent) {
+        if (ref.current && !ref.current.contains(e.target as Node)) {
+          setOpen(false);
+          setSearch("");
+        }
+      }
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }, []);
+
+    const filtered = PAISES_LISTA.filter((p) =>
+      normalizarTexto(p.nombre).includes(normalizarTexto(search))
+    );
+
+    return (
+      <div ref={ref} style={{ position: "relative", userSelect: "none" }}>
+        <div
+          onClick={() => { setOpen(!open); setSearch(""); }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            padding: "9px 12px",
+            border: "1.5px solid " + (open ? "#1A3A6B" : "#E4E8F0"),
+            borderRadius: 9,
+            background: open ? "#fff" : "#F7F9FD",
+            cursor: "pointer",
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 14,
+            color: value ? "#0D1F45" : "#8A9CC0",
+            transition: "border-color 0.18s, background 0.18s",
+            boxSizing: "border-box" as const,
+          }}
+        >
+          {value ? (
+            <>
+              <FlagImg pais={value} size={18} />
+              <span style={{ flex: 1 }}>{value}</span>
+            </>
+          ) : (
+            <span style={{ flex: 1, color: "#8A9CC0" }}>Selecciona un país</span>
+          )}
+          <svg
+            width="12" height="12" viewBox="0 0 12 12" fill="none"
+            style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}
+          >
+            <path d="M2 4l4 4 4-4" stroke="#8A9CC0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        {open && (
+          <div style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0, right: 0,
+            background: "#fff",
+            border: "1.5px solid #E4E8F0",
+            borderRadius: 10,
+            boxShadow: "0 8px 28px rgba(13,31,69,0.13)",
+            zIndex: 300,
+            overflow: "hidden",
+          }}>
+            {/* Buscador interno */}
+            <div style={{ padding: "8px 10px", borderBottom: "1px solid #F0F3FA" }}>
+              <input
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar país..."
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  border: "1.5px solid #E4E8F0",
+                  borderRadius: 7,
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 13,
+                  color: "#0D1F45",
+                  outline: "none",
+                  boxSizing: "border-box" as const,
+                  background: "#F7F9FD",
+                }}
+              />
+            </div>
+            <div style={{ maxHeight: 220, overflowY: "auto" }}>
+              {filtered.length === 0 ? (
+                <div style={{ padding: "12px 14px", fontSize: 13, color: "#8A9CC0", textAlign: "center" }}>
+                  Sin resultados
+                </div>
+              ) : filtered.map((p) => (
+                <div
+                  key={p.nombre}
+                  onMouseDown={() => { onChange(p.nombre); setOpen(false); setSearch(""); }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "9px 14px",
+                    cursor: "pointer",
+                    background: value === p.nombre ? "#EBF0FC" : "transparent",
+                    borderBottom: "1px solid #F7F9FD",
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 13,
+                    color: "#0D1F45",
+                    fontWeight: value === p.nombre ? 600 : 400,
+                    transition: "background 0.12s",
+                  }}
+                  onMouseEnter={(e) => { if (value !== p.nombre) (e.currentTarget as HTMLElement).style.background = "#F5F8FF"; }}
+                  onMouseLeave={(e) => { if (value !== p.nombre) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <img
+                    src={`https://flagcdn.com/24x18/${p.iso}.png`}
+                    alt={p.nombre}
+                    style={{ width: 21, height: 16, objectFit: "cover", borderRadius: 2, flexShrink: 0, boxShadow: "0 0 0 1px rgba(0,0,0,0.08)" }}
+                  />
+                  <span>{p.nombre}</span>
+                  {value === p.nombre && (
+                    <svg style={{ marginLeft: "auto" }} width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="#1A3A6B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const camposFiltrados = campos.filter((c) => {
     if (filtroPais === "todos") return true;
-    const paisNorm = normalizarTexto(c.pais);
-    const esColombia = paisNorm === "colombia";
-    if (filtroPais === "colombia") return esColombia;
-    if (filtroPais === "exterior") return !esColombia;
-    return true;
+    return normalizarTexto(c.pais) === normalizarTexto(filtroPais);
   });
 
   function formatFecha(f: string) {
@@ -480,10 +886,11 @@ export default function CamposPanel({ user }: { user: User }) {
         .ca-content { flex: 1; padding: 1.2rem 1.5rem; overflow-y: auto; }
         .ca-layout { display: grid; grid-template-columns: 300px 1fr; gap: 1.2rem; min-height: 100%; }
         .ca-lista { display: flex; flex-direction: column; gap: 10px; align-content: start; }
-        .ca-filtros-pais { display: flex; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
-        .filtro-pais-btn { padding: 5px 14px; border-radius: 20px; border: 1.5px solid #E4E8F0; background: #F7F9FD; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; color: #8A9CC0; cursor: pointer; transition: all 0.18s; }
+        .ca-filtros-pais { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+        .filtro-pais-btn { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; border: 1.5px solid #E4E8F0; background: #F7F9FD; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; color: #8A9CC0; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
         .filtro-pais-btn:hover { border-color: #2B5BA8; color: #0D1F45; }
         .filtro-pais-btn.on { background: #0D1F45; border-color: #0D1F45; color: #fff; }
+        .filtro-pais-flag { font-size: 14px; line-height: 1; }
 
         .campo-card { background: #fff; border: 1.5px solid #E4E8F0; border-radius: 12px; padding: 1rem 1.2rem; cursor: pointer; transition: all 0.18s; }
         .campo-card:hover { border-color: #2B5BA8; }
@@ -668,13 +1075,22 @@ export default function CamposPanel({ user }: { user: User }) {
               {/* Lista */}
               <div className="ca-lista">
                 <div className="ca-filtros-pais">
-                  {(["todos", "colombia", "exterior"] as const).map((f) => (
+                  <button
+                    className={`filtro-pais-btn ${filtroPais === "todos" ? "on" : ""}`}
+                    onClick={() => setFiltroPais("todos")}
+                  >
+                    🌎 Todos
+                  </button>
+                  {paisesUnicos.map((p) => (
                     <button
-                      key={f}
-                      className={`filtro-pais-btn ${filtroPais === f ? "on" : ""}`}
-                      onClick={() => setFiltroPais(f)}
+                      key={p}
+                      className={`filtro-pais-btn ${filtroPais === p ? "on" : ""}`}
+                      onClick={() => setFiltroPais(p)}
                     >
-                      {f === "todos" ? "Todos" : f === "colombia" ? "Colombia" : "Exterior"}
+                      <span className="filtro-pais-flag">
+                        <FlagImg pais={p} size={14} />
+                      </span>
+                      {p}
                     </button>
                   ))}
                 </div>
@@ -701,7 +1117,8 @@ export default function CamposPanel({ user }: { user: User }) {
                         <div className="campo-nombre">
                           Campo en {campo.ciudad}
                         </div>
-                        <div className="campo-pais">
+                        <div className="campo-pais" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <FlagImg pais={campo.pais} size={12} />
                           {[campo.departamento, campo.pais].filter(Boolean).join(", ")}
                         </div>
                       </div>
@@ -791,6 +1208,7 @@ export default function CamposPanel({ user }: { user: User }) {
                               >
                                 Reactivar campo
                               </button>
+                              {/*
                               <button
                                 className="btn-eliminar-campo"
                                 onClick={() =>
@@ -798,7 +1216,7 @@ export default function CamposPanel({ user }: { user: User }) {
                                 }
                               >
                                 Eliminar campo
-                              </button>
+                              </button> */}
                             </>
                           ))}
                       </div>
@@ -1358,7 +1776,7 @@ export default function CamposPanel({ user }: { user: User }) {
                   onChange={(e) =>
                     setFormCampo({ ...formCampo, ciudad: e.target.value })
                   }
-                  placeholder="Ej: Montería"
+                  placeholder="Ej: Bucaramanga"
                 />
               </div>
               <div>
@@ -1369,18 +1787,14 @@ export default function CamposPanel({ user }: { user: User }) {
                   onChange={(e) =>
                     setFormCampo({ ...formCampo, departamento: e.target.value })
                   }
-                  placeholder="Ej: Córdoba"
+                  placeholder="Ej: Santander"
                 />
               </div>
               <div>
                 <label className="field-label">País</label>
-                <input
-                  className="field-input"
+                <CountrySelect
                   value={formCampo.pais}
-                  onChange={(e) =>
-                    setFormCampo({ ...formCampo, pais: e.target.value })
-                  }
-                  placeholder="Ej: Colombia"
+                  onChange={(v) => setFormCampo({ ...formCampo, pais: v })}
                 />
               </div>
               <div>
