@@ -5,7 +5,7 @@ import ColportoresPanel from '@/components/admin/ColportoresPanel'
 import CamposPanel from '@/components/admin/CamposPanel'
 import SiembraPanel from '@/components/admin/SiembraPanel'
 import ReportesPanel from '@/components/admin/ReportesPanel'
-import UsuariosPanel from '@/components/admin/UsuariosPanel'
+import UsuariosPanel from '@/components/admin/UsuariosPanel' 
 
 type User = { id: string; name: string; phone: string; role: string }
 
@@ -52,6 +52,7 @@ export default function AdminDashboard() {
   ]
 
   const gestion = navItems.filter(n => n.group === 'Gestión')
+  const misioneroItems = navItems.filter(n => n.group === '¿Quieres ser un misionero?')
   const sistema = navItems.filter(n => n.group === 'Sistema')
   const activeItem = navItems.find(n => n.key === active)
 
@@ -208,6 +209,7 @@ body { background: #F0F4FA; }
                 <span className="nav-text">{item.label}</span>
               </button>
             ))}
+
             <span className="nav-label" style={{ marginTop: '1rem' }}>Sistema</span>
             {sistema.map(item => (
               <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => setActive(item.key)}>

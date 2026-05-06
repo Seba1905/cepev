@@ -809,7 +809,7 @@ export default function CamposPanel({ user }: { user: User }) {
                 }}
               />
             </div>
-            <div style={{ maxHeight: 220, overflowY: "auto" }}>
+            <div style={{ maxHeight: 114, overflowY: "auto" }}>
               {filtered.length === 0 ? (
                 <div style={{ padding: "12px 14px", fontSize: 13, color: "#8A9CC0", textAlign: "center" }}>
                   Sin resultados
@@ -900,6 +900,12 @@ export default function CamposPanel({ user }: { user: User }) {
         .campo-pais { font-size: 12px; color: #8A9CC0; margin-top: 2px; }
         .campo-card-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; flex-wrap: wrap; gap: 4px; }
         .campo-fecha { font-size: 11px; color: #8A9CC0; }
+
+        /* Limita la altura del menú de banderas */
+        #rfs-primary-menu {max-height: 150px !important; overflow-y: auto !important;}
+
+        /* Opcional: Si la librería usa estas clases en tu versión */
+        .ReactFlagsSelect-module_flagsSelectOptions__3U9mZ {max-height: 150px !important; overflow-y: auto !important;}
 
         .b-activo { display: inline-block; background: rgba(16,185,129,0.1); color: #065F46; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
         .b-cerrado { display: inline-block; background: #F0F3FA; color: #8A9CC0; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
@@ -1763,7 +1769,7 @@ export default function CamposPanel({ user }: { user: User }) {
               <button
                 className="modal-close"
                 onClick={() => setModalCampo(false)}
-              >
+              > 
                 ×
               </button>
             </div>
@@ -1791,12 +1797,15 @@ export default function CamposPanel({ user }: { user: User }) {
                 />
               </div>
               <div>
-                <label className="field-label">País</label>
-                <CountrySelect
-                  value={formCampo.pais}
-                  onChange={(v) => setFormCampo({ ...formCampo, pais: v })}
-                />
-              </div>
+  <label className="field-label">País</label>
+  {/* Envolvemos en un div con posición relativa para control extra */}
+  <div style={{ position: 'relative', zIndex: 100 }}>
+    <CountrySelect
+      value={formCampo.pais}
+      onChange={(v) => setFormCampo({ ...formCampo, pais: v })}
+    />
+  </div>
+</div>
               <div>
                 <label className="field-label">Fecha de inicio</label>
                 <input
@@ -1806,6 +1815,7 @@ export default function CamposPanel({ user }: { user: User }) {
                   onChange={(e) => setFechaInicio(e.target.value)}
                 />
               </div>
+              
             </div>
             <div className="modal-foot">
               <button

@@ -14,7 +14,7 @@ type Colportor = {
   tiene_pasaporte: boolean;
   localidad: string;
   ubicacion_actual: string | null;
-  categoria: "CDA INTEGRAL" | "CEPEVISTA" | "COLPORTOR" | "PAC";
+  categoria: "CDA INTEGRAL" | "CEPEVISTA" | "COLPORTOR" | "PAC" | "EJERCITO CELESTIAL";
   paisCampo?: string | null;
 };
 
@@ -108,17 +108,38 @@ export default function ColportoresPanel({ user }: { user: User }) {
     setModal(true);
   }
 
-  async function handleSave() {
-    setSaving(true);
+async function handleSave() {
+  setSaving(true);
+
+  // 1. Extraemos paisCampo para que NO se envíe en el body de la petición
+  // También extraemos id si existe para evitar conflictos al actualizar
+  const { paisCampo, id, ...datosParaGuardar } = form as any;
+
+  try {
     if (editing) {
-      await supabase.from("colportores").update(form).eq("id", editing.id);
+      const { error } = await supabase
+        .from("colportores")
+        .update(datosParaGuardar) // Enviamos solo los datos limpios
+        .eq("id", editing.id);
+      
+      if (error) throw error;
     } else {
-      await supabase.from("colportores").insert({ ...form, ubicacion_actual: null });
+      const { error } = await supabase
+        .from("colportores")
+        .insert({ ...datosParaGuardar, ubicacion_actual: null });
+      
+      if (error) throw error;
     }
-    setSaving(false);
+
     setModal(false);
     fetchAll();
+  } catch (error: any) {
+    console.error("Error al guardar:", error);
+    alert("Error al guardar: " + error.message);
+  } finally {
+    setSaving(false);
   }
+}
 
   async function handleDelete(id: string) {
     await supabase.from("colportores").delete().eq("id", id);
@@ -225,6 +246,17 @@ export default function ColportoresPanel({ user }: { user: User }) {
     </div>
   );
 
+    const getCatClass = (cat: string) => {
+    switch (cat) {
+      case "CDA INTEGRAL": return "cat-cda";
+      case "CEPEVISTA": return "cat-cepevista";
+      case "EJERCITO CELESTIAL": return "cat-ejercito";
+      case "COLPORTOR": return "cat-colportor";
+      case "PAC": return "cat-pac";
+      default: return "";
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -287,7 +319,7 @@ export default function ColportoresPanel({ user }: { user: User }) {
         .modal-head { padding: 1.2rem 1.5rem; border-bottom: 1.5px solid #E4E8F0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
         .modal-title { font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 700; color: #0D1F45; }
         .modal-close { background: none; border: none; cursor: pointer; color: #8A9CC0; font-size: 22px; line-height: 1; }
-        .modal-body { padding: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; overflow-y: auto; }
+        .modal-body { padding: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; overflow-y: auto;}
         .modal-body .full { grid-column: 1 / -1; }
         .field-label { font-size: 11px; font-weight: 700; color: #4A6080; letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 6px; display: block; }
         .field-input { width: 100%; padding: 9px 12px; border: 1.5px solid #E4E8F0; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: #0D1F45; background: #F7F9FD; outline: none; transition: border 0.2s; }
@@ -314,6 +346,23 @@ export default function ColportoresPanel({ user }: { user: User }) {
         /* Zebra stripes */
         .cp-row:nth-child(even) { background: #F7F9FD; }
         .cp-row:nth-child(even):hover { background: #F0F4FC; }
+
+          /* Colores Pasteles para Categorías */
+          .cat-cda { background-color: #E0F2FE; color: #0369A1; } /* Azul pastel */
+          .cat-cepevista { background-color: #F0FDF4; color: #15803D; } /* Verde pastel */
+          .cat-ejercito { background-color: #FAF5FF; color: #7E22CE; } /* Morado pastel */
+          .cat-colportor { background-color: #FFF7ED; color: #C2410C; } /* Naranja pastel */
+          .cat-pac { background-color: #ffe9e9; color: #8d2e2e; } /* Gris azulado pastel */
+
+          /* Ajuste general para los badges */
+          .b-cat {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;}
 
         @media (max-width: 768px) {
           .cp-stats { grid-template-columns: repeat(2, 1fr); }
@@ -522,7 +571,9 @@ export default function ColportoresPanel({ user }: { user: User }) {
                           {c.tipo_documento} · {c.numero_documento}
                         </span>
                         <span>
-                          <span className="b-cat">{c.categoria}</span>
+                          <span className={`b-cat ${getCatClass(c.categoria)}`}>
+                            {c.categoria}
+                          </span>
                         </span>
                         <span>
                           {c.ubicacion_actual ? (
@@ -585,7 +636,9 @@ export default function ColportoresPanel({ user }: { user: User }) {
                           {c.tipo_documento} · {c.numero_documento}
                         </span>
                         <span>
-                          <span className="b-cat">{c.categoria}</span>
+                          <span className={`b-cat ${getCatClass(c.categoria)}`}>
+                            {c.categoria}
+                          </span>
                         </span>
                         <span className="cp-td-m">{c.localidad}</span>
                         <span>
@@ -635,8 +688,10 @@ export default function ColportoresPanel({ user }: { user: User }) {
                         <span className="cp-td-m">
                           {c.tipo_documento} · {c.numero_documento}
                         </span>
-                        <span>
-                          <span className="b-cat">{c.categoria}</span>
+                       <span>
+                          <span className={`b-cat ${getCatClass(c.categoria)}`}>
+                            {c.categoria}
+                          </span>
                         </span>
                         <span className="cp-td-m">{c.localidad}</span>
                         <span>
